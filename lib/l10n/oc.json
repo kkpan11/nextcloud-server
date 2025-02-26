@@ -25,11 +25,9 @@
     "File already exists" : "Lo fichièr existís ja",
     "Templates" : "Modèls",
     "__language_name__" : "Occitan",
-    "Help" : "Ajuda",
     "Apps" : "Aplicacions",
     "Settings" : "Paramètres",
     "Log out" : "Desconnexion",
-    "Users" : "Utilizaires",
     "Email" : "Corrièl",
     "Mail %s" : "Mail %s",
     "Phone" : "Telefòn",
@@ -46,7 +44,6 @@
     "Role" : "Ròtle",
     "Additional settings" : "Paramètres addicionals",
     "Set an admin password." : "Definir un senhal admin.",
-    "Open »%s«" : "Dobrir « %s »",
     "Sunday" : "dimenge",
     "Monday" : "diluns",
     "Tuesday" : "dimars",
@@ -67,10 +64,13 @@
     "November" : "Novembre",
     "December" : "Decembre",
     "May." : "Mai.",
-    "User disabled" : "Utilizaire desactivat",
     "a safe home for all your data" : "un ostal segur per vòstras donadas",
     "Authentication error" : "Error d’autentificacion",
     "Storage is temporarily not available" : "Emmagazinatge temporàriament indisponible",
-    "Full name" : "Nom complèt"
+    "Chat" : "Messatjariá",
+    "Text" : "Tèxt",
+    "Translate" : "Tradurre",
+    "Users" : "Utilizaires",
+    "Open »%s«" : "Dobrir « %s »"
 },"pluralForm" :"nplurals=2; plural=(n > 1);"
 }

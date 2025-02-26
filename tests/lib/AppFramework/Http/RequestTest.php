@@ -1,14 +1,9 @@
 <?php
 /**
- * @copyright 2013 Thomas Tanghus (thomas@tanghus.net)
- * @copyright 2016 Lukas Reschke lukas@owncloud.com
- * @copyright 2022 Stanimir Bozhilov (stanimir@audriga.com)
- *
- * This file is licensed under the Affero General Public License version 3 or
- * later.
- * See the COPYING-README file.
+ * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
 namespace Test\AppFramework\Http;
 
 use OC\AppFramework\Http\Request;
@@ -52,7 +47,7 @@ class RequestTest extends \Test\TestCase {
 		parent::tearDown();
 	}
 
-	public function testRequestAccessors() {
+	public function testRequestAccessors(): void {
 		$vars = [
 			'get' => ['name' => 'John Q. Public', 'nickname' => 'Joey'],
 			'method' => 'GET',
@@ -82,7 +77,7 @@ class RequestTest extends \Test\TestCase {
 	}
 
 	// urlParams has precedence over POST which has precedence over GET
-	public function testPrecedence() {
+	public function testPrecedence(): void {
 		$vars = [
 			'get' => ['name' => 'John Q. Public', 'nickname' => 'Joey'],
 			'post' => ['name' => 'Jane Doe', 'nickname' => 'Janey'],
@@ -105,7 +100,7 @@ class RequestTest extends \Test\TestCase {
 
 
 
-	public function testImmutableArrayAccess() {
+	public function testImmutableArrayAccess(): void {
 		$this->expectException(\RuntimeException::class);
 
 		$vars = [
@@ -125,7 +120,7 @@ class RequestTest extends \Test\TestCase {
 	}
 
 
-	public function testImmutableMagicAccess() {
+	public function testImmutableMagicAccess(): void {
 		$this->expectException(\RuntimeException::class);
 
 		$vars = [
@@ -145,7 +140,7 @@ class RequestTest extends \Test\TestCase {
 	}
 
 
-	public function testGetTheMethodRight() {
+	public function testGetTheMethodRight(): void {
 		$this->expectException(\LogicException::class);
 
 		$vars = [
@@ -164,7 +159,7 @@ class RequestTest extends \Test\TestCase {
 		$request->post;
 	}
 
-	public function testTheMethodIsRight() {
+	public function testTheMethodIsRight(): void {
 		$vars = [
 			'get' => ['name' => 'John Q. Public', 'nickname' => 'Joey'],
 			'method' => 'GET',
@@ -184,7 +179,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('Joey', $result['nickname']);
 	}
 
-	public function testJsonPost() {
+	public function testJsonPost(): void {
 		global $data;
 		$data = '{"name": "John Q. Public", "nickname": "Joey"}';
 		$vars = [
@@ -208,7 +203,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('Joey', $request['nickname']);
 	}
 
-	public function testScimJsonPost() {
+	public function testScimJsonPost(): void {
 		global $data;
 		$data = '{"userName":"testusername", "displayName":"Example User"}';
 		$vars = [
@@ -232,7 +227,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('Example User', $request['displayName']);
 	}
 
-	public function testCustomJsonPost() {
+	public function testCustomJsonPost(): void {
 		global $data;
 		$data = '{"propertyA":"sometestvalue", "propertyB":"someothertestvalue"}';
 
@@ -267,7 +262,7 @@ class RequestTest extends \Test\TestCase {
 	/**
 	 * @dataProvider notJsonDataProvider
 	 */
-	public function testNotJsonPost($testData) {
+	public function testNotJsonPost($testData): void {
 		global $data;
 		$data = $testData;
 		$vars = [
@@ -288,7 +283,7 @@ class RequestTest extends \Test\TestCase {
 		// ensure there's no error attempting to decode the content
 	}
 
-	public function testNotScimJsonPost() {
+	public function testNotScimJsonPost(): void {
 		global $data;
 		$data = 'this is not valid scim json';
 		$vars = [
@@ -309,7 +304,7 @@ class RequestTest extends \Test\TestCase {
 		// ensure there's no error attempting to decode the content
 	}
 
-	public function testNotCustomJsonPost() {
+	public function testNotCustomJsonPost(): void {
 		global $data;
 		$data = 'this is not valid json';
 		$vars = [
@@ -330,7 +325,7 @@ class RequestTest extends \Test\TestCase {
 		// ensure there's no error attempting to decode the content
 	}
 
-	public function testPatch() {
+	public function testPatch(): void {
 		global $data;
 		$data = http_build_query(['name' => 'John Q. Public', 'nickname' => 'Joey'], '', '&');
 
@@ -354,7 +349,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('Joey', $result['nickname']);
 	}
 
-	public function testJsonPatchAndPut() {
+	public function testJsonPatchAndPut(): void {
 		global $data;
 
 		// PUT content
@@ -400,7 +395,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame(null, $result['nickname']);
 	}
 
-	public function testScimJsonPatchAndPut() {
+	public function testScimJsonPatchAndPut(): void {
 		global $data;
 
 		// PUT content
@@ -446,7 +441,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame(null, $result['displayName']);
 	}
 
-	public function testCustomJsonPatchAndPut() {
+	public function testCustomJsonPatchAndPut(): void {
 		global $data;
 
 		// PUT content
@@ -492,7 +487,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame(null, $result['propertyB']);
 	}
 
-	public function testPutStream() {
+	public function testPutStream(): void {
 		global $data;
 		$data = file_get_contents(__DIR__ . '/../../../data/testimage.png');
 
@@ -527,7 +522,7 @@ class RequestTest extends \Test\TestCase {
 	}
 
 
-	public function testSetUrlParameters() {
+	public function testSetUrlParameters(): void {
 		$vars = [
 			'post' => [],
 			'method' => 'POST',
@@ -549,331 +544,188 @@ class RequestTest extends \Test\TestCase {
 		$this->assertEquals('3', $request->getParams()['id']);
 	}
 
-	public function testGetRemoteAddressWithoutTrustedRemote() {
-		$this->config
-			->expects($this->once())
-			->method('getSystemValue')
-			->with('trusted_proxies')
-			->willReturn([]);
-
-		$request = new Request(
-			[
-				'server' => [
+	public function dataGetRemoteAddress(): array {
+		return [
+			'IPv4 without trusted remote' => [
+				[
 					'REMOTE_ADDR' => '10.0.0.2',
 					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
 				],
+				[],
+				[],
+				'10.0.0.2',
 			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('10.0.0.2', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteAddressWithNoTrustedHeader() {
-		$this->config
-			->expects($this->exactly(2))
-			->method('getSystemValue')
-			->withConsecutive(
-				['trusted_proxies'],
-				['forwarded_for_headers'],
-			)->willReturnOnConsecutiveCalls(
+			'IPv4 without trusted headers' => [
+				[
+					'REMOTE_ADDR' => '10.0.0.2',
+					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
+				],
 				['10.0.0.2'],
-				[]
-			);
-
-		$request = new Request(
-			[
-				'server' => [
+				[],
+				'10.0.0.2',
+			],
+			'IPv4 with single trusted remote' => [
+				[
 					'REMOTE_ADDR' => '10.0.0.2',
 					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
 				],
-			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('10.0.0.2', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteAddressWithSingleTrustedRemote() {
-		$this->config
-			->expects($this->exactly(2))
-			->method('getSystemValue')
-			->withConsecutive(
-				['trusted_proxies'],
-				['forwarded_for_headers'],
-			)-> willReturnOnConsecutiveCalls(
 				['10.0.0.2'],
 				['HTTP_X_FORWARDED'],
-			);
-
-		$request = new Request(
-			[
-				'server' => [
-					'REMOTE_ADDR' => '10.0.0.2',
-					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
-				],
+				'10.4.0.4',
 			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('10.4.0.5', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteAddressIPv6WithSingleTrustedRemote() {
-		$this->config
-			->expects($this->exactly(2))
-			->method('getSystemValue')
-			->withConsecutive(
-				['trusted_proxies'],
-				['forwarded_for_headers'],
-			)-> willReturnOnConsecutiveCalls(
-				['2001:db8:85a3:8d3:1319:8a2e:370:7348'],
-				['HTTP_X_FORWARDED'],
-			);
-
-		$request = new Request(
-			[
-				'server' => [
+			'IPv6 with single trusted remote' => [
+				[
 					'REMOTE_ADDR' => '2001:db8:85a3:8d3:1319:8a2e:370:7348',
 					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
 				],
+				['2001:db8:85a3:8d3:1319:8a2e:370:7348'],
+				['HTTP_X_FORWARDED'],
+				'10.4.0.4',
 			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('10.4.0.5', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteAddressVerifyPriorityHeader() {
-		$this->config
-			->expects($this->exactly(2))
-			->method('getSystemValue')
-			->withConsecutive(
-				['trusted_proxies'],
-				['forwarded_for_headers'],
-			)-> willReturnOnConsecutiveCalls(
+			'IPv4 with multiple trusted remotes' => [
+				[
+					'REMOTE_ADDR' => '10.0.0.2',
+					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4, ::1',
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
+				],
+				['10.0.0.2', '::1'],
+				['HTTP_X_FORWARDED'],
+				'10.4.0.4',
+			],
+			'IPv4 order of forwarded-for headers' => [
+				[
+					'REMOTE_ADDR' => '10.0.0.2',
+					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
+				],
+				['10.0.0.2'],
+				[
+					'HTTP_X_FORWARDED',
+					'HTTP_X_FORWARDED_FOR',
+					'HTTP_CLIENT_IP',
+				],
+				'192.168.0.233',
+			],
+			'IPv4 order of forwarded-for headers (reversed)' => [
+				[
+					'REMOTE_ADDR' => '10.0.0.2',
+					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
+				],
 				['10.0.0.2'],
 				[
 					'HTTP_CLIENT_IP',
 					'HTTP_X_FORWARDED_FOR',
 					'HTTP_X_FORWARDED',
 				],
-			);
-
-		$request = new Request(
-			[
-				'server' => [
-					'REMOTE_ADDR' => '10.0.0.2',
-					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
-				],
+				'10.4.0.4',
 			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('192.168.0.233', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteAddressIPv6VerifyPriorityHeader() {
-		$this->config
-			->expects($this->exactly(2))
-			->method('getSystemValue')
-			->withConsecutive(
-				['trusted_proxies'],
-				['forwarded_for_headers'],
-			)-> willReturnOnConsecutiveCalls(
+			'IPv6 order of forwarded-for headers' => [
+				[
+					'REMOTE_ADDR' => '2001:db8:85a3:8d3:1319:8a2e:370:7348',
+					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
+				],
 				['2001:db8:85a3:8d3:1319:8a2e:370:7348'],
 				[
-					'HTTP_CLIENT_IP',
+					'HTTP_X_FORWARDED',
 					'HTTP_X_FORWARDED_FOR',
-					'HTTP_X_FORWARDED'
+					'HTTP_CLIENT_IP',
 				],
-			);
-
-		$request = new Request(
-			[
-				'server' => [
-					'REMOTE_ADDR' => '2001:db8:85a3:8d3:1319:8a2e:370:7348',
-					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
-				],
+				'192.168.0.233',
 			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('192.168.0.233', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteAddressWithMatchingCidrTrustedRemote() {
-		$this->config
-			->expects($this->exactly(2))
-			->method('getSystemValue')
-			->withConsecutive(
-				['trusted_proxies'],
-				['forwarded_for_headers'],
-			)-> willReturnOnConsecutiveCalls(
-				['192.168.2.0/24'],
-				['HTTP_X_FORWARDED_FOR'],
-			);
-
-		$request = new Request(
-			[
-				'server' => [
-					'REMOTE_ADDR' => '192.168.2.99',
-					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
-				],
-			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('192.168.0.233', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteAddressWithNotMatchingCidrTrustedRemote() {
-		$this->config
-			->expects($this->once())
-			->method('getSystemValue')
-			->with('trusted_proxies')
-			->willReturn(['192.168.2.0/24']);
-
-		$request = new Request(
-			[
-				'server' => [
+			'IPv4 matching CIDR of trusted proxy' => [
+				[
 					'REMOTE_ADDR' => '192.168.3.99',
 					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
 				],
-			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('192.168.3.99', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteIpv6AddressWithMatchingIpv6CidrTrustedRemote() {
-		$this->config
-			->expects($this->exactly(2))
-			->method('getSystemValue')
-			->withConsecutive(
-				['trusted_proxies'],
-				['forwarded_for_headers']
-			)->willReturnOnConsecutiveCalls(
-				['2001:db8:85a3:8d3:1319:8a20::/95'],
-				['HTTP_X_FORWARDED_FOR']
-			);
-
-		$request = new Request(
-			[
-				'server' => [
-					'REMOTE_ADDR' => '2001:db8:85a3:8d3:1319:8a21:370:7348',
-					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
-				],
-			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('192.168.0.233', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteAddressIpv6WithNotMatchingCidrTrustedRemote() {
-		$this->config
-			->expects($this->once())
-			->method('getSystemValue')
-			->with('trusted_proxies')
-			->willReturn(['fd::/8']);
-
-		$request = new Request(
-			[
-				'server' => [
-					'REMOTE_ADDR' => '2001:db8:85a3:8d3:1319:8a2e:370:7348',
-					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
-				],
-			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('2001:db8:85a3:8d3:1319:8a2e:370:7348', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteAddressIpv6WithInvalidTrustedProxy() {
-		$this->config
-			->expects($this->once())
-			->method('getSystemValue')
-			->with('trusted_proxies')
-			->willReturn(['fx::/8']);
-
-		$request = new Request(
-			[
-				'server' => [
-					'REMOTE_ADDR' => '2001:db8:85a3:8d3:1319:8a2e:370:7348',
-					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
-					'HTTP_X_FORWARDED_FOR' => '192.168.0.233'
-				],
-			],
-			$this->requestId,
-			$this->config,
-			$this->csrfTokenManager,
-			$this->stream
-		);
-
-		$this->assertSame('2001:db8:85a3:8d3:1319:8a2e:370:7348', $request->getRemoteAddress());
-	}
-
-	public function testGetRemoteAddressWithXForwardedForIPv6() {
-		$this->config
-			->expects($this->exactly(2))
-			->method('getSystemValue')
-			->withConsecutive(
-				['trusted_proxies'],
-				['forwarded_for_headers'],
-			)-> willReturnOnConsecutiveCalls(
 				['192.168.2.0/24'],
 				['HTTP_X_FORWARDED_FOR'],
-			);
-
-		$request = new Request(
-			[
-				'server' => [
+				'192.168.3.99',
+			],
+			'IPv6 matching CIDR of trusted proxy' => [
+				[
+					'REMOTE_ADDR' => '2001:db8:85a3:8d3:1319:8a21:370:7348',
+					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
+				],
+				['2001:db8:85a3:8d3:1319:8a20::/95'],
+				['HTTP_X_FORWARDED_FOR'],
+				'192.168.0.233',
+			],
+			'IPv6 not matching CIDR of trusted proxy' => [
+				[
+					'REMOTE_ADDR' => '2001:db8:85a3:8d3:1319:8a2e:370:7348',
+					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
+				],
+				['fd::/8'],
+				[],
+				'2001:db8:85a3:8d3:1319:8a2e:370:7348',
+			],
+			'IPv6 with invalid trusted proxy' => [
+				[
+					'REMOTE_ADDR' => '2001:db8:85a3:8d3:1319:8a2e:370:7348',
+					'HTTP_X_FORWARDED' => '10.4.0.5, 10.4.0.4',
+					'HTTP_X_FORWARDED_FOR' => '192.168.0.233',
+				],
+				['fx::/8'],
+				[],
+				'2001:db8:85a3:8d3:1319:8a2e:370:7348',
+			],
+			'IPv4 forwarded for IPv6' => [
+				[
 					'REMOTE_ADDR' => '192.168.2.99',
 					'HTTP_X_FORWARDED_FOR' => '[2001:db8:85a3:8d3:1319:8a2e:370:7348]',
 				],
+				['192.168.2.0/24'],
+				['HTTP_X_FORWARDED_FOR'],
+				'2001:db8:85a3:8d3:1319:8a2e:370:7348',
+			],
+			'IPv4 with port' => [
+				[
+					'REMOTE_ADDR' => '2001:db8:85a3:8d3:1319:8a2e:370:7348',
+					'HTTP_X_FORWARDED_FOR' => '192.168.2.99:8080',
+				],
+				['2001:db8::/8'],
+				['HTTP_X_FORWARDED_FOR'],
+				'192.168.2.99',
+			],
+			'IPv6 with port' => [
+				[
+					'REMOTE_ADDR' => '192.168.2.99',
+					'HTTP_X_FORWARDED_FOR' => '[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080',
+				],
+				['192.168.2.0/24'],
+				['HTTP_X_FORWARDED_FOR'],
+				'2001:db8:85a3:8d3:1319:8a2e:370:7348',
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider dataGetRemoteAddress
+	 */
+	public function testGetRemoteAddress(array $headers, array $trustedProxies, array $forwardedForHeaders, string $expected): void {
+		$this->config
+			->method('getSystemValue')
+			->withConsecutive(
+				['trusted_proxies'],
+				['forwarded_for_headers'],
+			)
+			->willReturnOnConsecutiveCalls(
+				$trustedProxies,
+				$forwardedForHeaders,
+			);
+
+		$request = new Request(
+			[
+				'server' => $headers,
 			],
 			$this->requestId,
 			$this->config,
@@ -881,7 +733,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('2001:db8:85a3:8d3:1319:8a2e:370:7348', $request->getRemoteAddress());
+		$this->assertSame($expected, $request->getRemoteAddress());
 	}
 
 	/**
@@ -919,7 +771,7 @@ class RequestTest extends \Test\TestCase {
 	 * @param mixed $input
 	 * @param string $expected
 	 */
-	public function testGetHttpProtocol($input, $expected) {
+	public function testGetHttpProtocol($input, $expected): void {
 		$request = new Request(
 			[
 				'server' => [
@@ -935,7 +787,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame($expected, $request->getHttpProtocol());
 	}
 
-	public function testGetServerProtocolWithOverride() {
+	public function testGetServerProtocolWithOverride(): void {
 		$this->config
 			->expects($this->exactly(3))
 			->method('getSystemValueString')
@@ -955,7 +807,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('customProtocol', $request->getServerProtocol());
 	}
 
-	public function testGetServerProtocolWithProtoValid() {
+	public function testGetServerProtocolWithProtoValid(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -996,7 +848,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('http', $requestHttp->getServerProtocol());
 	}
 
-	public function testGetServerProtocolWithHttpsServerValueOn() {
+	public function testGetServerProtocolWithHttpsServerValueOn(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -1017,7 +869,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('https', $request->getServerProtocol());
 	}
 
-	public function testGetServerProtocolWithHttpsServerValueOff() {
+	public function testGetServerProtocolWithHttpsServerValueOff(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -1038,7 +890,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('http', $request->getServerProtocol());
 	}
 
-	public function testGetServerProtocolWithHttpsServerValueEmpty() {
+	public function testGetServerProtocolWithHttpsServerValueEmpty(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -1059,7 +911,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('http', $request->getServerProtocol());
 	}
 
-	public function testGetServerProtocolDefault() {
+	public function testGetServerProtocolDefault(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -1076,7 +928,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('http', $request->getServerProtocol());
 	}
 
-	public function testGetServerProtocolBehindLoadBalancers() {
+	public function testGetServerProtocolBehindLoadBalancers(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -1109,7 +961,7 @@ class RequestTest extends \Test\TestCase {
 	 * @param array $userAgent
 	 * @param bool $matches
 	 */
-	public function testUserAgent($testAgent, $userAgent, $matches) {
+	public function testUserAgent($testAgent, $userAgent, $matches): void {
 		$request = new Request(
 			[
 				'server' => [
@@ -1131,7 +983,7 @@ class RequestTest extends \Test\TestCase {
 	 * @param array $userAgent
 	 * @param bool $matches
 	 */
-	public function testUndefinedUserAgent($testAgent, $userAgent, $matches) {
+	public function testUndefinedUserAgent($testAgent, $userAgent, $matches): void {
 		$request = new Request(
 			[],
 			$this->requestId,
@@ -1303,7 +1155,7 @@ class RequestTest extends \Test\TestCase {
 				'1.0.0',
 			],
 			[
-				'Mozilla/5.0 (Linux) Nextcloud-Thunderbird v1.0.0',
+				'Filelink for *cloud/1.0.0',
 				Request::USER_AGENT_THUNDERBIRD_ADDON,
 				'1.0.0',
 			],
@@ -1322,7 +1174,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame($version, $matches[1]);
 	}
 
-	public function testInsecureServerHostServerNameHeader() {
+	public function testInsecureServerHostServerNameHeader(): void {
 		$request = new Request(
 			[
 				'server' => [
@@ -1338,7 +1190,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('from.server.name:8080', $request->getInsecureServerHost());
 	}
 
-	public function testInsecureServerHostHttpHostHeader() {
+	public function testInsecureServerHostHttpHostHeader(): void {
 		$request = new Request(
 			[
 				'server' => [
@@ -1355,7 +1207,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('from.host.header:8080', $request->getInsecureServerHost());
 	}
 
-	public function testInsecureServerHostHttpFromForwardedHeaderSingle() {
+	public function testInsecureServerHostHttpFromForwardedHeaderSingle(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -1384,7 +1236,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('from.forwarded.host:8080', $request->getInsecureServerHost());
 	}
 
-	public function testInsecureServerHostHttpFromForwardedHeaderStacked() {
+	public function testInsecureServerHostHttpFromForwardedHeaderStacked(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -1413,7 +1265,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('from.forwarded.host2:8080', $request->getInsecureServerHost());
 	}
 
-	public function testGetServerHostWithOverwriteHost() {
+	public function testGetServerHostWithOverwriteHost(): void {
 		$this->config
 			->method('getSystemValueString')
 			->willReturnCallback(function ($key, $default) {
@@ -1437,7 +1289,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('my.overwritten.host', $request->getServerHost());
 	}
 
-	public function testGetServerHostWithTrustedDomain() {
+	public function testGetServerHostWithTrustedDomain(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -1466,7 +1318,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('my.trusted.host', $request->getServerHost());
 	}
 
-	public function testGetServerHostWithUntrustedDomain() {
+	public function testGetServerHostWithUntrustedDomain(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -1495,7 +1347,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('my.trusted.host', $request->getServerHost());
 	}
 
-	public function testGetServerHostWithNoTrustedDomain() {
+	public function testGetServerHostWithNoTrustedDomain(): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) {
@@ -1538,7 +1390,7 @@ class RequestTest extends \Test\TestCase {
 	 * @param $expected
 	 * @param $trustedDomain
 	 */
-	public function testGetServerHostTrustedDomain($expected, $trustedDomain) {
+	public function testGetServerHostTrustedDomain($expected, $trustedDomain): void {
 		$this->config
 			->method('getSystemValue')
 			->willReturnCallback(function ($key, $default) use ($trustedDomain) {
@@ -1567,7 +1419,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame($expected, $request->getServerHost());
 	}
 
-	public function testGetOverwriteHostDefaultNull() {
+	public function testGetOverwriteHostDefaultNull(): void {
 		$this->config
 			->expects($this->once())
 			->method('getSystemValueString')
@@ -1584,7 +1436,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertNull(self::invokePrivate($request, 'getOverwriteHost'));
 	}
 
-	public function testGetOverwriteHostWithOverwrite() {
+	public function testGetOverwriteHostWithOverwrite(): void {
 		$this->config
 			->expects($this->exactly(3))
 			->method('getSystemValueString')
@@ -1605,7 +1457,7 @@ class RequestTest extends \Test\TestCase {
 	}
 
 
-	public function testGetPathInfoNotProcessible() {
+	public function testGetPathInfoNotProcessible(): void {
 		$this->expectException(\Exception::class);
 		$this->expectExceptionMessage('The requested uri(/foo.php) cannot be processed by the script \'/var/www/index.php\')');
 
@@ -1626,7 +1478,7 @@ class RequestTest extends \Test\TestCase {
 	}
 
 
-	public function testGetRawPathInfoNotProcessible() {
+	public function testGetRawPathInfoNotProcessible(): void {
 		$this->expectException(\Exception::class);
 		$this->expectExceptionMessage('The requested uri(/foo.php) cannot be processed by the script \'/var/www/index.php\')');
 
@@ -1652,7 +1504,7 @@ class RequestTest extends \Test\TestCase {
 	 * @param string $scriptName
 	 * @param string $expected
 	 */
-	public function testGetPathInfoWithoutSetEnvGeneric($requestUri, $scriptName, $expected) {
+	public function testGetPathInfoWithoutSetEnvGeneric($requestUri, $scriptName, $expected): void {
 		$request = new Request(
 			[
 				'server' => [
@@ -1675,7 +1527,7 @@ class RequestTest extends \Test\TestCase {
 	 * @param string $scriptName
 	 * @param string $expected
 	 */
-	public function testGetRawPathInfoWithoutSetEnvGeneric($requestUri, $scriptName, $expected) {
+	public function testGetRawPathInfoWithoutSetEnvGeneric($requestUri, $scriptName, $expected): void {
 		$request = new Request(
 			[
 				'server' => [
@@ -1698,7 +1550,7 @@ class RequestTest extends \Test\TestCase {
 	 * @param string $scriptName
 	 * @param string $expected
 	 */
-	public function testGetRawPathInfoWithoutSetEnv($requestUri, $scriptName, $expected) {
+	public function testGetRawPathInfoWithoutSetEnv($requestUri, $scriptName, $expected): void {
 		$request = new Request(
 			[
 				'server' => [
@@ -1721,7 +1573,7 @@ class RequestTest extends \Test\TestCase {
 	 * @param string $scriptName
 	 * @param string $expected
 	 */
-	public function testGetPathInfoWithoutSetEnv($requestUri, $scriptName, $expected) {
+	public function testGetPathInfoWithoutSetEnv($requestUri, $scriptName, $expected): void {
 		$request = new Request(
 			[
 				'server' => [
@@ -1771,7 +1623,7 @@ class RequestTest extends \Test\TestCase {
 		];
 	}
 
-	public function testGetRequestUriWithoutOverwrite() {
+	public function testGetRequestUriWithoutOverwrite(): void {
 		$this->config
 			->expects($this->once())
 			->method('getSystemValueString')
@@ -1796,14 +1648,14 @@ class RequestTest extends \Test\TestCase {
 	public function providesGetRequestUriWithOverwriteData() {
 		return [
 			['/scriptname.php/some/PathInfo', '/owncloud/', ''],
-			['/scriptname.php/some/PathInfo', '/owncloud/', '123'],
+			['/scriptname.php/some/PathInfo', '/owncloud/', '123', '123.123.123.123'],
 		];
 	}
 
 	/**
 	 * @dataProvider providesGetRequestUriWithOverwriteData
 	 */
-	public function testGetRequestUriWithOverwrite($expectedUri, $overwriteWebRoot, $overwriteCondAddr) {
+	public function testGetRequestUriWithOverwrite($expectedUri, $overwriteWebRoot, $overwriteCondAddr, $remoteAddr = ''): void {
 		$this->config
 			->expects($this->exactly(2))
 			->method('getSystemValueString')
@@ -1812,13 +1664,14 @@ class RequestTest extends \Test\TestCase {
 				['overwritecondaddr', '', $overwriteCondAddr],
 			]);
 
-		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
+		$request = $this->getMockBuilder(Request::class)
 			->setMethods(['getScriptName'])
 			->setConstructorArgs([
 				[
 					'server' => [
 						'REQUEST_URI' => '/test.php/some/PathInfo',
 						'SCRIPT_NAME' => '/test.php',
+						'REMOTE_ADDR' => $remoteAddr
 					]
 				],
 				$this->requestId,
@@ -1835,7 +1688,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame($expectedUri, $request->getRequestUri());
 	}
 
-	public function testPassesCSRFCheckWithGet() {
+	public function testPassesCSRFCheckWithGet(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -1865,7 +1718,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertTrue($request->passesCSRFCheck());
 	}
 
-	public function testPassesCSRFCheckWithPost() {
+	public function testPassesCSRFCheckWithPost(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -1895,7 +1748,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertTrue($request->passesCSRFCheck());
 	}
 
-	public function testPassesCSRFCheckWithHeader() {
+	public function testPassesCSRFCheckWithHeader(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -1925,7 +1778,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertTrue($request->passesCSRFCheck());
 	}
 
-	public function testPassesCSRFCheckWithGetAndWithoutCookies() {
+	public function testPassesCSRFCheckWithGetAndWithoutCookies(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -1949,7 +1802,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertTrue($request->passesCSRFCheck());
 	}
 
-	public function testPassesCSRFCheckWithPostAndWithoutCookies() {
+	public function testPassesCSRFCheckWithPostAndWithoutCookies(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -1973,7 +1826,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertTrue($request->passesCSRFCheck());
 	}
 
-	public function testPassesCSRFCheckWithHeaderAndWithoutCookies() {
+	public function testPassesCSRFCheckWithHeaderAndWithoutCookies(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -1997,7 +1850,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertTrue($request->passesCSRFCheck());
 	}
 
-	public function testFailsCSRFCheckWithHeaderAndNotAllChecksPassing() {
+	public function testFailsCSRFCheckWithHeaderAndNotAllChecksPassing(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2024,7 +1877,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertFalse($request->passesCSRFCheck());
 	}
 
-	public function testPassesStrictCookieCheckWithAllCookiesAndStrict() {
+	public function testPassesStrictCookieCheckWithAllCookiesAndStrict(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName', 'getCookieParams'])
@@ -2056,7 +1909,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertTrue($request->passesStrictCookieCheck());
 	}
 
-	public function testFailsStrictCookieCheckWithAllCookiesAndMissingStrict() {
+	public function testFailsStrictCookieCheckWithAllCookiesAndMissingStrict(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName', 'getCookieParams'])
@@ -2088,7 +1941,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertFalse($request->passesStrictCookieCheck());
 	}
 
-	public function testGetCookieParams() {
+	public function testGetCookieParams(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder(Request::class)
 			->setMethods(['getScriptName'])
@@ -2104,7 +1957,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame(session_get_cookie_params(), $actual);
 	}
 
-	public function testPassesStrictCookieCheckWithAllCookies() {
+	public function testPassesStrictCookieCheckWithAllCookies(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2129,7 +1982,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertTrue($request->passesStrictCookieCheck());
 	}
 
-	public function testPassesStrictCookieCheckWithRandomCookies() {
+	public function testPassesStrictCookieCheckWithRandomCookies(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2152,7 +2005,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertTrue($request->passesStrictCookieCheck());
 	}
 
-	public function testFailsStrictCookieCheckWithSessionCookie() {
+	public function testFailsStrictCookieCheckWithSessionCookie(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2175,7 +2028,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertFalse($request->passesStrictCookieCheck());
 	}
 
-	public function testFailsStrictCookieCheckWithRememberMeCookie() {
+	public function testFailsStrictCookieCheckWithRememberMeCookie(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2198,7 +2051,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertFalse($request->passesStrictCookieCheck());
 	}
 
-	public function testFailsCSRFCheckWithPostAndWithCookies() {
+	public function testFailsCSRFCheckWithPostAndWithCookies(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2225,7 +2078,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertFalse($request->passesCSRFCheck());
 	}
 
-	public function testFailStrictCookieCheckWithOnlyLaxCookie() {
+	public function testFailStrictCookieCheckWithOnlyLaxCookie(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2249,7 +2102,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertFalse($request->passesStrictCookieCheck());
 	}
 
-	public function testFailStrictCookieCheckWithOnlyStrictCookie() {
+	public function testFailStrictCookieCheckWithOnlyStrictCookie(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2273,7 +2126,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertFalse($request->passesStrictCookieCheck());
 	}
 
-	public function testPassesLaxCookieCheck() {
+	public function testPassesLaxCookieCheck(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2297,7 +2150,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertTrue($request->passesLaxCookieCheck());
 	}
 
-	public function testFailsLaxCookieCheckWithOnlyStrictCookie() {
+	public function testFailsLaxCookieCheckWithOnlyStrictCookie(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2321,7 +2174,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertFalse($request->passesLaxCookieCheck());
 	}
 
-	public function testSkipCookieCheckForOCSRequests() {
+	public function testSkipCookieCheckForOCSRequests(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2361,7 +2214,7 @@ class RequestTest extends \Test\TestCase {
 	 * @dataProvider invalidTokenDataProvider
 	 * @param string $invalidToken
 	 */
-	public function testPassesCSRFCheckWithInvalidToken($invalidToken) {
+	public function testPassesCSRFCheckWithInvalidToken($invalidToken): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2388,7 +2241,7 @@ class RequestTest extends \Test\TestCase {
 		$this->assertFalse($request->passesCSRFCheck());
 	}
 
-	public function testPassesCSRFCheckWithoutTokenFail() {
+	public function testPassesCSRFCheckWithoutTokenFail(): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
 			->setMethods(['getScriptName'])
@@ -2402,5 +2255,25 @@ class RequestTest extends \Test\TestCase {
 			->getMock();
 
 		$this->assertFalse($request->passesCSRFCheck());
+	}
+
+	public function testPassesCSRFCheckWithOCSAPIRequestHeader(): void {
+		/** @var Request $request */
+		$request = $this->getMockBuilder('\OC\AppFramework\Http\Request')
+			->setMethods(['getScriptName'])
+			->setConstructorArgs([
+				[
+					'server' => [
+						'HTTP_OCS_APIREQUEST' => 'true',
+					],
+				],
+				$this->requestId,
+				$this->config,
+				$this->csrfTokenManager,
+				$this->stream
+			])
+			->getMock();
+
+		$this->assertTrue($request->passesCSRFCheck());
 	}
 }

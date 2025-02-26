@@ -1,45 +1,30 @@
 /**
- * @copyright Copyright (c) 2023 John Molakvoæ <skjnldsv@protonmail.com>
- *
- * @author John Molakvoæ <skjnldsv@protonmail.com>
- *
- * @license AGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- *
+ * SPDX-FileCopyrightText: 2023 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { File, Folder, Permission, View, FileAction, DefaultType } from '@nextcloud/files'
+import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
+
 import { action } from './downloadAction'
-import { expect } from '@jest/globals'
-import { File, Folder, Permission } from '@nextcloud/files'
-import { FileAction } from '../services/FileAction'
-import * as eventBus from '@nextcloud/event-bus'
-import axios from '@nextcloud/axios'
-import type { Navigation } from '../services/Navigation'
-import logger from '../logger'
 
 const view = {
 	id: 'files',
 	name: 'Files',
-} as Navigation
+} as View
+
+// Mock webroot variable
+beforeAll(() => {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	(window as any)._oc_webroot = ''
+})
 
 describe('Download action conditions tests', () => {
 	test('Default values', () => {
 		expect(action).toBeInstanceOf(FileAction)
 		expect(action.id).toBe('download')
 		expect(action.displayName([], view)).toBe('Download')
-		expect(action.iconSvgInline([], view)).toBe('<svg>SvgMock</svg>')
-		expect(action.default).toBeUndefined()
+		expect(action.iconSvgInline([], view)).toMatch(/<svg.+<\/svg>/)
+		expect(action.default).toBe(DefaultType.DEFAULT)
 		expect(action.order).toBe(30)
 	})
 })
@@ -99,11 +84,12 @@ describe('Download action enabled tests', () => {
 
 describe('Download action execute tests', () => {
 	const link = {
-		click: jest.fn(),
+		click: vi.fn(),
 	} as unknown as HTMLAnchorElement
 
 	beforeEach(() => {
-		jest.spyOn(document, 'createElement').mockImplementation(() => link)
+		vi.resetAllMocks()
+		vi.spyOn(document, 'createElement').mockImplementation(() => link)
 	})
 
 	test('Download single file', async () => {
@@ -155,7 +141,7 @@ describe('Download action execute tests', () => {
 		// Silent action
 		expect(exec).toBe(null)
 		expect(link.download).toEqual('')
-		expect(link.href.startsWith('/index.php/apps/files/ajax/download.php?dir=%2F&files=%5B%22FooBar%22%5D&downloadStartSecret=')).toBe(true)
+		expect(link.href).toMatch('https://cloud.domain.com/remote.php/dav/files/admin/FooBar/?accept=zip')
 		expect(link.click).toHaveBeenCalledTimes(1)
 	})
 
@@ -180,7 +166,7 @@ describe('Download action execute tests', () => {
 		// Silent action
 		expect(exec).toStrictEqual([null, null])
 		expect(link.download).toEqual('')
-		expect(link.href.startsWith('/index.php/apps/files/ajax/download.php?dir=%2FDir&files=%5B%22foo.txt%22%2C%22bar.txt%22%5D&downloadStartSecret=')).toBe(true)
+		expect(link.href).toMatch('https://cloud.domain.com/remote.php/dav/files/admin/Dir/?accept=zip&files=%5B%22foo.txt%22%2C%22bar.txt%22%5D')
 		expect(link.click).toHaveBeenCalledTimes(1)
 	})
 })

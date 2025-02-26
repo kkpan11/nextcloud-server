@@ -1,38 +1,16 @@
 <?php
 /**
- * @copyright Copyright (c) 2016, ownCloud, Inc.
- *
- * @author Arthur Schiwon <blizzz@arthur-schiwon.de>
- * @author Bjoern Schiessle <bjoern@schiessle.org>
- * @author Christoph Wurst <christoph@winzerhof-wurst.at>
- * @author Daniel Kesselberg <mail@danielkesselberg.de>
- * @author Joas Schilling <coding@schilljs.com>
- * @author Julius Härtl <jus@bitgrid.net>
- * @author Morris Jobke <hey@morrisjobke.de>
- * @author Robin Appelman <robin@icewind.nl>
- * @author Roeland Jago Douma <roeland@famdouma.nl>
- * @author Thomas Müller <thomas.mueller@tmit.eu>
- *
- * @license AGPL-3.0
- *
- * This code is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License, version 3,
- * as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License, version 3,
- * along with this program. If not, see <http://www.gnu.org/licenses/>
- *
+ * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 namespace OCA\Files_Sharing\Tests\External;
 
 use OC\Federation\CloudIdManager;
+use OC\Files\Mount\MountPoint;
 use OC\Files\SetupManagerFactory;
 use OC\Files\Storage\StorageFactory;
+use OC\Files\Storage\Temporary;
 use OCA\Files_Sharing\External\Manager;
 use OCA\Files_Sharing\External\MountProvider;
 use OCA\Files_Sharing\Tests\TestCase;
@@ -44,12 +22,15 @@ use OCP\Files\NotFoundException;
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
 use OCP\ICacheFactory;
+use OCP\IDBConnection;
 use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
+use OCP\OCS\IDiscoveryService;
+use OCP\Server;
 use OCP\Share\IShare;
 use Psr\Log\LoggerInterface;
 use Test\Traits\UserTrait;
@@ -67,7 +48,7 @@ class ManagerTest extends TestCase {
 	/** @var IManager|\PHPUnit\Framework\MockObject\MockObject */
 	protected $contactsManager;
 
-	/** @var Manager|\PHPUnit\Framework\MockObject\MockObject **/
+	/** @var Manager|\PHPUnit\Framework\MockObject\MockObject * */
 	private $manager;
 
 	/** @var \OC\Files\Mount\Manager */
@@ -94,7 +75,7 @@ class ManagerTest extends TestCase {
 	private $uid;
 
 	/**
-	 * @var \OCP\IUser
+	 * @var IUser
 	 */
 	private $user;
 	private $testMountProvider;
@@ -126,7 +107,7 @@ class ManagerTest extends TestCase {
 
 		$this->manager = $this->createManagerForUser($this->uid);
 
-		$this->testMountProvider = new MountProvider(\OC::$server->getDatabaseConnection(), function () {
+		$this->testMountProvider = new MountProvider(Server::get(IDBConnection::class), function () {
 			return $this->manager;
 		}, new CloudIdManager(
 			$this->contactsManager,
@@ -155,7 +136,7 @@ class ManagerTest extends TestCase {
 
 	protected function tearDown(): void {
 		// clear the share external table to avoid side effects
-		$query = \OC::$server->getDatabaseConnection()->prepare('DELETE FROM `*PREFIX*share_external`');
+		$query = Server::get(IDBConnection::class)->prepare('DELETE FROM `*PREFIX*share_external`');
 		$result = $query->execute();
 		$result->closeCursor();
 
@@ -173,12 +154,12 @@ class ManagerTest extends TestCase {
 		return $this->getMockBuilder(Manager::class)
 			->setConstructorArgs(
 				[
-					\OC::$server->getDatabaseConnection(),
+					Server::get(IDBConnection::class),
 					$this->mountManager,
 					new StorageFactory(),
 					$this->clientService,
-					\OC::$server->getNotificationManager(),
-					\OC::$server->query(\OCP\OCS\IDiscoveryService::class),
+					Server::get(\OCP\Notification\IManager::class),
+					Server::get(IDiscoveryService::class),
 					$this->cloudFederationProviderManager,
 					$this->cloudFederationFactory,
 					$this->groupManager,
@@ -191,14 +172,19 @@ class ManagerTest extends TestCase {
 	}
 
 	private function setupMounts() {
-		$this->mountManager->clear();
+		$this->clearMounts();
 		$mounts = $this->testMountProvider->getMountsForUser($this->user, new StorageFactory());
 		foreach ($mounts as $mount) {
 			$this->mountManager->addMount($mount);
 		}
 	}
 
-	public function testAddUserShare() {
+	private function clearMounts() {
+		$this->mountManager->clear();
+		$this->mountManager->addMount(new MountPoint(Temporary::class, '', []));
+	}
+
+	public function testAddUserShare(): void {
 		$this->doTestAddShare([
 			'remote' => 'http://localhost',
 			'token' => 'token1',
@@ -212,7 +198,7 @@ class ManagerTest extends TestCase {
 		], false);
 	}
 
-	public function testAddGroupShare() {
+	public function testAddGroupShare(): void {
 		$this->doTestAddShare([
 			'remote' => 'http://localhost',
 			'token' => 'token1',
@@ -235,7 +221,7 @@ class ManagerTest extends TestCase {
 		if ($isGroup) {
 			$this->manager->expects($this->never())->method('tryOCMEndPoint');
 		} else {
-			$this->manager->expects($this->any())->method('tryOCMEndPoint')
+			$this->manager->method('tryOCMEndPoint')
 				->withConsecutive(
 					['http://localhost', 'token1', '2342', 'accept'],
 					['http://localhost', 'token3', '2342', 'decline'],
@@ -415,7 +401,7 @@ class ManagerTest extends TestCase {
 
 		$this->assertEmpty(self::invokePrivate($this->manager, 'getShares', [null]), 'Asserting all shares for the user have been deleted');
 
-		$this->mountManager->clear();
+		$this->clearMounts();
 		self::invokePrivate($this->manager, 'setupMounts');
 		$this->assertNotMount($shareData1['name']);
 		$this->assertNotMount('{{TemporaryMountPointName#' . $shareData1['name'] . '}}');
@@ -491,7 +477,7 @@ class ManagerTest extends TestCase {
 		return [$shareData, $groupShare];
 	}
 
-	public function testAcceptOriginalGroupShare() {
+	public function testAcceptOriginalGroupShare(): void {
 		[$shareData, $groupShare] = $this->createTestGroupShare();
 		$this->assertTrue($this->manager->acceptShare($groupShare['id']));
 		$this->verifyAcceptedGroupShare($shareData);
@@ -501,7 +487,7 @@ class ManagerTest extends TestCase {
 		$this->verifyAcceptedGroupShare($shareData);
 	}
 
-	public function testAcceptGroupShareAgainThroughGroupShare() {
+	public function testAcceptGroupShareAgainThroughGroupShare(): void {
 		[$shareData, $groupShare] = $this->createTestGroupShare();
 		$this->assertTrue($this->manager->acceptShare($groupShare['id']));
 		$this->verifyAcceptedGroupShare($shareData);
@@ -523,7 +509,7 @@ class ManagerTest extends TestCase {
 		$this->verifyAcceptedGroupShare($shareData, '/SharedFolder');
 	}
 
-	public function testAcceptGroupShareAgainThroughSubShare() {
+	public function testAcceptGroupShareAgainThroughSubShare(): void {
 		[$shareData, $groupShare] = $this->createTestGroupShare();
 		$this->assertTrue($this->manager->acceptShare($groupShare['id']));
 		$this->verifyAcceptedGroupShare($shareData);
@@ -545,7 +531,7 @@ class ManagerTest extends TestCase {
 		$this->verifyAcceptedGroupShare($shareData);
 	}
 
-	public function testDeclineOriginalGroupShare() {
+	public function testDeclineOriginalGroupShare(): void {
 		[$shareData, $groupShare] = $this->createTestGroupShare();
 		$this->assertTrue($this->manager->declineShare($groupShare['id']));
 		$this->verifyDeclinedGroupShare($shareData);
@@ -555,7 +541,7 @@ class ManagerTest extends TestCase {
 		$this->verifyDeclinedGroupShare($shareData);
 	}
 
-	public function testDeclineGroupShareAgainThroughGroupShare() {
+	public function testDeclineGroupShareAgainThroughGroupShare(): void {
 		[$shareData, $groupShare] = $this->createTestGroupShare();
 		$this->assertTrue($this->manager->acceptShare($groupShare['id']));
 		$this->verifyAcceptedGroupShare($shareData);
@@ -569,7 +555,7 @@ class ManagerTest extends TestCase {
 		$this->verifyDeclinedGroupShare($shareData, '/SharedFolder');
 	}
 
-	public function testDeclineGroupShareAgainThroughSubshare() {
+	public function testDeclineGroupShareAgainThroughSubshare(): void {
 		[$shareData, $groupShare] = $this->createTestGroupShare();
 		$this->assertTrue($this->manager->acceptShare($groupShare['id']));
 		$this->verifyAcceptedGroupShare($shareData);
@@ -587,7 +573,7 @@ class ManagerTest extends TestCase {
 		$this->verifyDeclinedGroupShare($shareData, '/SharedFolder');
 	}
 
-	public function testDeclineGroupShareAgainThroughMountPoint() {
+	public function testDeclineGroupShareAgainThroughMountPoint(): void {
 		[$shareData, $groupShare] = $this->createTestGroupShare();
 		$this->assertTrue($this->manager->acceptShare($groupShare['id']));
 		$this->verifyAcceptedGroupShare($shareData);
@@ -600,7 +586,7 @@ class ManagerTest extends TestCase {
 		$this->assertFalse($this->manager->removeShare($this->uid . '/files/' . $shareData['name']));
 	}
 
-	public function testDeclineThenAcceptGroupShareAgainThroughGroupShare() {
+	public function testDeclineThenAcceptGroupShareAgainThroughGroupShare(): void {
 		[$shareData, $groupShare] = $this->createTestGroupShare();
 		// decline, this creates a declined sub-share
 		$this->assertTrue($this->manager->declineShare($groupShare['id']));
@@ -618,7 +604,7 @@ class ManagerTest extends TestCase {
 		$this->verifyAcceptedGroupShare($shareData, '/SharedFolder');
 	}
 
-	public function testDeclineThenAcceptGroupShareAgainThroughSubShare() {
+	public function testDeclineThenAcceptGroupShareAgainThroughSubShare(): void {
 		[$shareData, $groupShare] = $this->createTestGroupShare();
 		// decline, this creates a declined sub-share
 		$this->assertTrue($this->manager->declineShare($groupShare['id']));
@@ -636,7 +622,7 @@ class ManagerTest extends TestCase {
 		$this->verifyAcceptedGroupShare($shareData);
 	}
 
-	public function testDeleteUserShares() {
+	public function testDeleteUserShares(): void {
 		// user 1 shares
 
 		$shareData = $this->createTestUserShare($this->uid);
@@ -661,10 +647,10 @@ class ManagerTest extends TestCase {
 			'user' => 'user2',
 			'remoteId' => '2342'
 		];
-		$this->assertSame(null, call_user_func_array([$manager2, 'addShare'], $shareData2));
 
-		$user2Shares = $manager2->getOpenShares();
-		$this->assertCount(2, $user2Shares);
+		$this->assertCount(1, $manager2->getOpenShares());
+		$this->assertSame(null, call_user_func_array([$manager2, 'addShare'], $shareData2));
+		$this->assertCount(2, $manager2->getOpenShares());
 
 		$this->manager->expects($this->once())->method('tryOCMEndPoint')->with('http://localhost', 'token1', '2342', 'decline')->willReturn([]);
 		$this->manager->removeUserShares($this->uid);
@@ -683,7 +669,7 @@ class ManagerTest extends TestCase {
 		$this->assertEquals($user2Shares[1]['user'], 'user2');
 	}
 
-	public function testDeleteGroupShares() {
+	public function testDeleteGroupShares(): void {
 		$shareData = $this->createTestUserShare($this->uid);
 
 		[$shareData, $groupShare] = $this->createTestGroupShare();
@@ -706,10 +692,10 @@ class ManagerTest extends TestCase {
 			'user' => 'user2',
 			'remoteId' => '2342'
 		];
-		$this->assertSame(null, call_user_func_array([$manager2, 'addShare'], $shareData2));
 
-		$user2Shares = $manager2->getOpenShares();
-		$this->assertCount(2, $user2Shares);
+		$this->assertCount(1, $manager2->getOpenShares());
+		$this->assertSame(null, call_user_func_array([$manager2, 'addShare'], $shareData2));
+		$this->assertCount(2, $manager2->getOpenShares());
 
 		$this->manager->expects($this->never())->method('tryOCMEndPoint');
 		$this->manager->removeGroupShares('group1');
@@ -737,7 +723,7 @@ class ManagerTest extends TestCase {
 		$this->assertEquals($expected['token'], $actual['share_token'], 'Asserting token of a share #' . $share);
 		$this->assertEquals($expected['name'], $actual['name'], 'Asserting name of a share #' . $share);
 		$this->assertEquals($expected['owner'], $actual['owner'], 'Asserting owner of a share #' . $share);
-		$this->assertEquals($expected['accepted'], (int) $actual['accepted'], 'Asserting accept of a share #' . $share);
+		$this->assertEquals($expected['accepted'], (int)$actual['accepted'], 'Asserting accept of a share #' . $share);
 		$this->assertEquals($targetEntity, $actual['user'], 'Asserting user of a share #' . $share);
 		$this->assertEquals($mountPoint, $actual['mountpoint'], 'Asserting mountpoint of a share #' . $share);
 	}

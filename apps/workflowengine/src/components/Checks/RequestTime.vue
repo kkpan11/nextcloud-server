@@ -1,3 +1,7 @@
+<!--
+  - SPDX-FileCopyrightText: 2019 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 <template>
 	<div class="timeslot">
 		<input v-model="newValue.startTime"
@@ -21,7 +25,7 @@
 </template>
 
 <script>
-import NcSelect from '@nextcloud/vue/dist/Components/NcSelect.js'
+import NcSelect from '@nextcloud/vue/components/NcSelect'
 import moment from 'moment-timezone'
 import valueMixin from '../../mixins/valueMixin.js'
 
@@ -105,7 +109,7 @@ export default {
 			margin-bottom: 5px;
 		}
 
-		.multiselect::v-deep .multiselect__tags:not(:hover):not(:focus):not(:active) {
+		.multiselect:deep(.multiselect__tags:not(:hover):not(:focus):not(:active)) {
 			border: 1px solid transparent;
 		}
 
@@ -116,7 +120,7 @@ export default {
 			min-height: 48px;
 
 			&.timeslot--start {
-				margin-right: 5px;
+				margin-inline-end: 5px;
 				width: calc(50% - 5px);
 			}
 		}

@@ -3,7 +3,7 @@
     "info": {
         "title": "files_trashbin",
         "version": "0.0.1",
-        "description": "This application enables users to restore files that were deleted from the system.",
+        "description": "This application enables people to restore files that were deleted from the system.",
         "license": {
             "name": "agpl"
         }
@@ -29,10 +29,14 @@
                     "files": {
                         "type": "object",
                         "required": [
-                            "undelete"
+                            "undelete",
+                            "delete_from_trash"
                         ],
                         "properties": {
                             "undelete": {
+                                "type": "boolean"
+                            },
+                            "delete_from_trash": {
                                 "type": "boolean"
                             }
                         }
@@ -94,7 +98,11 @@
                         "description": "Whether to not crop the preview",
                         "schema": {
                             "type": "integer",
-                            "default": 0
+                            "default": 0,
+                            "enum": [
+                                0,
+                                1
+                            ]
                         }
                     }
                 ],

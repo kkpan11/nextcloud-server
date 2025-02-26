@@ -1,31 +1,12 @@
 /**
- * @copyright Copyright (c) 2023 John Molakvoæ <skjnldsv@protonmail.com>
- *
- * @author John Molakvoæ <skjnldsv@protonmail.com>
- *
- * @license AGPL-3.0-or-later
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- *
+ * SPDX-FileCopyrightText: 2023 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { Permission, Node, FileType } from '@nextcloud/files'
-import { translate as t } from '@nextcloud/l10n'
-import ArrowDownSvg from '@mdi/svg/svg/arrow-down.svg?raw'
+import { FileAction, Node, FileType, DefaultType } from '@nextcloud/files'
+import { t } from '@nextcloud/l10n'
+import { isDownloadable } from '../utils/permissions'
 
-import { registerFileAction, FileAction, DefaultType } from '../services/FileAction'
-import { generateUrl } from '@nextcloud/router'
-import type { Navigation } from '../services/Navigation'
+import ArrowDownSvg from '@mdi/svg/svg/arrow-down.svg?raw'
 
 const triggerDownload = function(url: string) {
 	const hiddenElement = document.createElement('a')
@@ -34,48 +15,88 @@ const triggerDownload = function(url: string) {
 	hiddenElement.click()
 }
 
-const downloadNodes = function(dir: string, nodes: Node[]) {
-	const secret = Math.random().toString(36).substring(2)
-	const url = generateUrl('/apps/files/ajax/download.php?dir={dir}&files={files}&downloadStartSecret={secret}', {
-		dir,
-		secret,
-		files: JSON.stringify(nodes.map(node => node.basename)),
-	})
-	triggerDownload(url)
+/**
+ * Find the longest common path prefix of both input paths
+ * @param first The first path
+ * @param second The second path
+ */
+function longestCommonPath(first: string, second: string): string {
+	const firstSegments = first.split('/').filter(Boolean)
+	const secondSegments = second.split('/').filter(Boolean)
+	let base = ''
+	for (const [index, segment] of firstSegments.entries()) {
+		if (index >= second.length) {
+			break
+		}
+		if (segment !== secondSegments[index]) {
+			break
+		}
+		const sep = base === '' ? '' : '/'
+		base = `${base}${sep}${segment}`
+	}
+	return base
+}
+
+const downloadNodes = function(nodes: Node[]) {
+	let url: URL
+
+	if (nodes.length === 1) {
+		if (nodes[0].type === FileType.File) {
+			return triggerDownload(nodes[0].encodedSource)
+		} else {
+			url = new URL(nodes[0].encodedSource)
+			url.searchParams.append('accept', 'zip')
+		}
+	} else {
+		url = new URL(nodes[0].source)
+		let base = url.pathname
+		for (const node of nodes.slice(1)) {
+			base = longestCommonPath(base, (new URL(node.source).pathname))
+		}
+		url.pathname = base
+
+		// The URL contains the path encoded so we need to decode as the query.append will re-encode it
+		const filenames = nodes.map((node) => decodeURI(node.encodedSource.slice(url.href.length + 1)))
+		url.searchParams.append('accept', 'zip')
+		url.searchParams.append('files', JSON.stringify(filenames))
+	}
+
+	if (url.pathname.at(-1) !== '/') {
+		url.pathname = `${url.pathname}/`
+	}
+
+	return triggerDownload(url.href)
 }
 
 export const action = new FileAction({
 	id: 'download',
+	default: DefaultType.DEFAULT,
+
 	displayName: () => t('files', 'Download'),
 	iconSvgInline: () => ArrowDownSvg,
 
 	enabled(nodes: Node[]) {
-		return nodes.length > 0 && nodes
-			.map(node => node.permissions)
-			.every(permission => (permission & Permission.READ) !== 0)
-	},
-
-	async exec(node: Node, view: Navigation, dir: string) {
-		if (node.type === FileType.Folder) {
-			downloadNodes(dir, [node])
-			return null
+		if (nodes.length === 0) {
+			return false
 		}
 
-		triggerDownload(node.source)
+		// We can only download dav files and folders.
+		if (nodes.some(node => !node.isDavRessource)) {
+			return false
+		}
+
+		return nodes.every(isDownloadable)
+	},
+
+	async exec(node: Node) {
+		downloadNodes([node])
 		return null
 	},
 
-	async execBatch(nodes: Node[], view: Navigation, dir: string) {
-		if (nodes.length === 1) {
-			this.exec(nodes[0], view, dir)
-			return [null]
-		}
-
-		downloadNodes(dir, nodes)
+	async execBatch(nodes: Node[]) {
+		downloadNodes(nodes)
 		return new Array(nodes.length).fill(null)
 	},
 
 	order: 30,
 })
-
-registerFileAction(action)

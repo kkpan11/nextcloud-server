@@ -22,9 +22,6 @@
         "schemas": {
             "Capabilities": {
                 "type": "object",
-                "required": [
-                    "files_sharing"
-                ],
                 "properties": {
                     "files_sharing": {
                         "type": "object",

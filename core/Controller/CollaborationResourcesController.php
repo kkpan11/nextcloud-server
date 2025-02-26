@@ -3,35 +3,17 @@
 declare(strict_types=1);
 
 /**
- * @copyright Copyright (c) 2018 Joas Schilling <coding@schilljs.com>
- *
- * @author Joas Schilling <coding@schilljs.com>
- * @author Julius Härtl <jus@bitgrid.net>
- * @author Roeland Jago Douma <roeland@famdouma.nl>
- * @author Kate Döen <kate.doeen@nextcloud.com>
- *
- * @license GNU AGPL version 3 or any later version
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- *
+ * SPDX-FileCopyrightText: 2018 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 namespace OC\Core\Controller;
 
 use Exception;
-use OCA\Core\ResponseDefinitions;
+use OC\Core\ResponseDefinitions;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCSController;
 use OCP\Collaboration\Resources\CollectionException;
@@ -44,7 +26,7 @@ use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 
 /**
- * @psalm-import-type CoreOpenGraphObject from ResponseDefinitions
+ * @psalm-import-type CoreResource from ResponseDefinitions
  * @psalm-import-type CoreCollection from ResponseDefinitions
  */
 class CollaborationResourcesController extends OCSController {
@@ -74,16 +56,16 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @NoAdminRequired
-	 *
 	 * Get a collection
 	 *
 	 * @param int $collectionId ID of the collection
-	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, array<empty>, array{}>
+	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, list<empty>, array{}>
 	 *
 	 * 200: Collection returned
 	 * 404: Collection not found
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/resources/collections/{collectionId}', root: '/collaboration')]
 	public function listCollection(int $collectionId): DataResponse {
 		try {
 			$collection = $this->getCollection($collectionId);
@@ -95,16 +77,16 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @NoAdminRequired
-	 *
 	 * Search for collections
 	 *
 	 * @param string $filter Filter collections
-	 * @return DataResponse<Http::STATUS_OK, CoreCollection[], array{}>|DataResponse<Http::STATUS_NOT_FOUND, array<empty>, array{}>
+	 * @return DataResponse<Http::STATUS_OK, list<CoreCollection>, array{}>|DataResponse<Http::STATUS_NOT_FOUND, list<empty>, array{}>
 	 *
 	 * 200: Collections returned
 	 * 404: Collection not found
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/resources/collections/search/{filter}', root: '/collaboration')]
 	public function searchCollections(string $filter): DataResponse {
 		try {
 			$collections = $this->manager->searchCollections($this->userSession->getUser(), $filter);
@@ -116,18 +98,18 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @NoAdminRequired
-	 *
 	 * Add a resource to a collection
 	 *
 	 * @param int $collectionId ID of the collection
 	 * @param string $resourceType Name of the resource
 	 * @param string $resourceId ID of the resource
-	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, array<empty>, array{}>
+	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, list<empty>, array{}>
 	 *
 	 * 200: Collection returned
 	 * 404: Collection not found or resource inaccessible
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'POST', url: '/resources/collections/{collectionId}', root: '/collaboration')]
 	public function addResource(int $collectionId, string $resourceType, string $resourceId): DataResponse {
 		try {
 			$collection = $this->getCollection($collectionId);
@@ -150,18 +132,18 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @NoAdminRequired
-	 *
 	 * Remove a resource from a collection
 	 *
 	 * @param int $collectionId ID of the collection
 	 * @param string $resourceType Name of the resource
 	 * @param string $resourceId ID of the resource
-	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, array<empty>, array{}>
+	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, list<empty>, array{}>
 	 *
 	 * 200: Collection returned
 	 * 404: Collection or resource not found
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'DELETE', url: '/resources/collections/{collectionId}', root: '/collaboration')]
 	public function removeResource(int $collectionId, string $resourceType, string $resourceId): DataResponse {
 		try {
 			$collection = $this->getCollection($collectionId);
@@ -181,17 +163,17 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @NoAdminRequired
-	 *
 	 * Get collections by resource
 	 *
 	 * @param string $resourceType Type of the resource
 	 * @param string $resourceId ID of the resource
-	 * @return DataResponse<Http::STATUS_OK, CoreCollection[], array{}>|DataResponse<Http::STATUS_NOT_FOUND, array<empty>, array{}>
+	 * @return DataResponse<Http::STATUS_OK, list<CoreCollection>, array{}>|DataResponse<Http::STATUS_NOT_FOUND, list<empty>, array{}>
 	 *
 	 * 200: Collections returned
 	 * 404: Resource not accessible
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/resources/{resourceType}/{resourceId}', root: '/collaboration')]
 	public function getCollectionsByResource(string $resourceType, string $resourceId): DataResponse {
 		try {
 			$resource = $this->manager->getResourceForUser($resourceType, $resourceId, $this->userSession->getUser());
@@ -207,19 +189,19 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @NoAdminRequired
-	 *
 	 * Create a collection for a resource
 	 *
 	 * @param string $baseResourceType Type of the base resource
 	 * @param string $baseResourceId ID of the base resource
 	 * @param string $name Name of the collection
-	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, array<empty>, array{}>
+	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, list<empty>, array{}>
 	 *
 	 * 200: Collection returned
 	 * 400: Creating collection is not possible
 	 * 404: Resource inaccessible
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'POST', url: '/resources/{baseResourceType}/{baseResourceId}', root: '/collaboration')]
 	public function createCollectionOnResource(string $baseResourceType, string $baseResourceId, string $name): DataResponse {
 		if (!isset($name[0]) || isset($name[64])) {
 			return new DataResponse([], Http::STATUS_BAD_REQUEST);
@@ -242,17 +224,17 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @NoAdminRequired
-	 *
 	 * Rename a collection
 	 *
 	 * @param int $collectionId ID of the collection
 	 * @param string $collectionName New name
-	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, array<empty>, array{}>
+	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, list<empty>, array{}>
 	 *
 	 * 200: Collection returned
 	 * 404: Collection not found
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'PUT', url: '/resources/collections/{collectionId}', root: '/collaboration')]
 	public function renameCollection(int $collectionId, string $collectionName): DataResponse {
 		try {
 			$collection = $this->getCollection($collectionId);
@@ -266,7 +248,7 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, array<empty>, array{}>
+	 * @return DataResponse<Http::STATUS_OK, CoreCollection, array{}>|DataResponse<Http::STATUS_NOT_FOUND|Http::STATUS_INTERNAL_SERVER_ERROR, list<empty>, array{}>
 	 */
 	protected function respondCollection(ICollection $collection): DataResponse {
 		try {
@@ -280,7 +262,7 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @return CoreCollection[]
+	 * @return list<CoreCollection>
 	 */
 	protected function prepareCollections(array $collections): array {
 		$result = [];
@@ -313,7 +295,7 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @return CoreOpenGraphObject[]
+	 * @return list<CoreResource>
 	 */
 	protected function prepareResources(array $resources): array {
 		$result = [];
@@ -331,7 +313,7 @@ class CollaborationResourcesController extends OCSController {
 	}
 
 	/**
-	 * @return CoreOpenGraphObject
+	 * @return CoreResource
 	 */
 	protected function prepareResource(IResource $resource): array {
 		if (!$resource->canAccess($this->userSession->getUser())) {

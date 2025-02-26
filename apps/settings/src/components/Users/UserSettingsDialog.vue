@@ -1,29 +1,12 @@
 <!--
-	- @copyright 2023 Christopher Ng <chrng8@gmail.com>
-	-
-	- @author Christopher Ng <chrng8@gmail.com>
-	-
-	- @license AGPL-3.0-or-later
-	-
-	- This program is free software: you can redistribute it and/or modify
-	- it under the terms of the GNU Affero General Public License as
-	- published by the Free Software Foundation, either version 3 of the
-	- License, or (at your option) any later version.
-	-
-	- This program is distributed in the hope that it will be useful,
-	- but WITHOUT ANY WARRANTY; without even the implied warranty of
-	- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-	- GNU Affero General Public License for more details.
-	-
-	- You should have received a copy of the GNU Affero General Public License
-	- along with this program. If not, see <http://www.gnu.org/licenses/>.
-	-
+  - SPDX-FileCopyrightText: 2023 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <template>
 	<NcAppSettingsDialog :open.sync="isModalOpen"
 		:show-navigation="true"
-		:name="t('settings', 'User management settings')">
+		:name="t('settings', 'Account management settings')">
 		<NcAppSettingsSection id="visibility-settings"
 			:name="t('settings', 'Visibility')">
 			<NcCheckboxRadioSwitch type="switch"
@@ -34,12 +17,17 @@
 			<NcCheckboxRadioSwitch type="switch"
 				data-test="showUserBackend"
 				:checked.sync="showUserBackend">
-				{{ t('settings', 'Show user backend') }}
+				{{ t('settings', 'Show account backend') }}
 			</NcCheckboxRadioSwitch>
 			<NcCheckboxRadioSwitch type="switch"
 				data-test="showStoragePath"
 				:checked.sync="showStoragePath">
 				{{ t('settings', 'Show storage path') }}
+			</NcCheckboxRadioSwitch>
+			<NcCheckboxRadioSwitch type="switch"
+				data-test="showFirstLogin"
+				:checked.sync="showFirstLogin">
+				{{ t('settings', 'Show first login') }}
 			</NcCheckboxRadioSwitch>
 			<NcCheckboxRadioSwitch type="switch"
 				data-test="showLastLogin"
@@ -48,42 +36,72 @@
 			</NcCheckboxRadioSwitch>
 		</NcAppSettingsSection>
 
+		<NcAppSettingsSection id="groups-sorting"
+			:name="t('settings', 'Sorting')">
+			<NcNoteCard v-if="isGroupSortingEnforced" type="warning">
+				{{ t('settings', 'The system config enforces sorting the groups by name. This also disables showing the member count.') }}
+			</NcNoteCard>
+			<fieldset>
+				<legend>{{ t('settings', 'Group list sorting') }}</legend>
+				<NcCheckboxRadioSwitch type="radio"
+					:checked.sync="groupSorting"
+					data-test="sortGroupsByMemberCount"
+					:disabled="isGroupSortingEnforced"
+					name="group-sorting-mode"
+					value="member-count">
+					{{ t('settings', 'By member count') }}
+				</NcCheckboxRadioSwitch>
+				<NcCheckboxRadioSwitch type="radio"
+					:checked.sync="groupSorting"
+					data-test="sortGroupsByName"
+					:disabled="isGroupSortingEnforced"
+					name="group-sorting-mode"
+					value="name">
+					{{ t('settings', 'By name') }}
+				</NcCheckboxRadioSwitch>
+			</fieldset>
+		</NcAppSettingsSection>
+
 		<NcAppSettingsSection id="email-settings"
 			:name="t('settings', 'Send email')">
 			<NcCheckboxRadioSwitch type="switch"
 				data-test="sendWelcomeMail"
 				:checked.sync="sendWelcomeMail"
 				:disabled="loadingSendMail">
-				{{ t('settings', 'Send welcome email to new users') }}
+				{{ t('settings', 'Send welcome email to new accounts') }}
 			</NcCheckboxRadioSwitch>
 		</NcAppSettingsSection>
 
 		<NcAppSettingsSection id="default-settings"
 			:name="t('settings', 'Defaults')">
-			<label for="default-quota-select">{{ t('settings', 'Default quota') }}</label>
 			<NcSelect v-model="defaultQuota"
-				input-id="default-quota-select"
-				placement="top"
-				:taggable="true"
-				:options="quotaOptions"
-				:create-option="validateQuota"
-				:placeholder="t('settings', 'Select default quota')"
 				:clearable="false"
+				:create-option="validateQuota"
+				:filter-by="filterQuotas"
+				:input-label="t('settings', 'Default quota')"
+				:options="quotaOptions"
+				placement="top"
+				:placeholder="t('settings', 'Select default quota')"
+				taggable
 				@option:selected="setDefaultQuota" />
 		</NcAppSettingsSection>
 	</NcAppSettingsDialog>
 </template>
 
 <script>
-import axios from '@nextcloud/axios'
+import { formatFileSize, parseFileSize } from '@nextcloud/files'
 import { generateUrl } from '@nextcloud/router'
 
-import NcAppSettingsDialog from '@nextcloud/vue/dist/Components/NcAppSettingsDialog.js'
-import NcAppSettingsSection from '@nextcloud/vue/dist/Components/NcAppSettingsSection.js'
-import NcCheckboxRadioSwitch from '@nextcloud/vue/dist/Components/NcCheckboxRadioSwitch.js'
-import NcSelect from '@nextcloud/vue/dist/Components/NcSelect.js'
+import axios from '@nextcloud/axios'
+import NcAppSettingsDialog from '@nextcloud/vue/components/NcAppSettingsDialog'
+import NcAppSettingsSection from '@nextcloud/vue/components/NcAppSettingsSection'
+import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
+import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import NcSelect from '@nextcloud/vue/components/NcSelect'
 
+import { GroupSorting } from '../../constants/GroupManagement.ts'
 import { unlimitedQuota } from '../../utils/userUtils.ts'
+import logger from '../../logger.ts'
 
 export default {
 	name: 'UserSettingsDialog',
@@ -92,6 +110,7 @@ export default {
 		NcAppSettingsDialog,
 		NcAppSettingsSection,
 		NcCheckboxRadioSwitch,
+		NcNoteCard,
 		NcSelect,
 	},
 
@@ -110,6 +129,22 @@ export default {
 	},
 
 	computed: {
+		groupSorting: {
+			get() {
+				return this.$store.getters.getGroupSorting === GroupSorting.GroupName ? 'name' : 'member-count'
+			},
+			set(sorting) {
+				this.$store.commit('setGroupSorting', sorting === 'name' ? GroupSorting.GroupName : GroupSorting.UserCount)
+			},
+		},
+
+		/**
+		 * Admin has configured `sort_groups_by_name` in the system config
+		 */
+		isGroupSortingEnforced() {
+			return this.$store.getters.getServerData.forceSortGroupByName
+		},
+
 		isModalOpen: {
 			get() {
 				return this.open
@@ -129,37 +164,46 @@ export default {
 
 		showLanguages: {
 			get() {
-				return this.getLocalstorage('showLanguages')
+				return this.showConfig.showLanguages
 			},
 			set(status) {
-				this.setLocalStorage('showLanguages', status)
+				this.setShowConfig('showLanguages', status)
+			},
+		},
+
+		showFirstLogin: {
+			get() {
+				return this.showConfig.showFirstLogin
+			},
+			set(status) {
+				this.setShowConfig('showFirstLogin', status)
 			},
 		},
 
 		showLastLogin: {
 			get() {
-				return this.getLocalstorage('showLastLogin')
+				return this.showConfig.showLastLogin
 			},
 			set(status) {
-				this.setLocalStorage('showLastLogin', status)
+				this.setShowConfig('showLastLogin', status)
 			},
 		},
 
 		showUserBackend: {
 			get() {
-				return this.getLocalstorage('showUserBackend')
+				return this.showConfig.showUserBackend
 			},
 			set(status) {
-				this.setLocalStorage('showUserBackend', status)
+				this.setShowConfig('showUserBackend', status)
 			},
 		},
 
 		showStoragePath: {
 			get() {
-				return this.getLocalstorage('showStoragePath')
+				return this.showConfig.showStoragePath
 			},
 			set(status) {
-				this.setLocalStorage('showStoragePath', status)
+				this.setShowConfig('showStoragePath', status)
 			},
 		},
 
@@ -201,8 +245,8 @@ export default {
 						newUserSendEmail: value,
 					})
 					await axios.post(generateUrl('/settings/users/preferences/newUser.sendEmail'), { value: value ? 'yes' : 'no' })
-				} catch (e) {
-					console.error('could not update newUser.sendEmail preference: ' + e.message, e)
+				} catch (error) {
+					logger.error('Could not update newUser.sendEmail preference', { error })
 				} finally {
 					this.loadingSendMail = false
 				}
@@ -211,18 +255,24 @@ export default {
 	},
 
 	methods: {
-		getLocalstorage(key) {
-			// force initialization
-			const localConfig = this.$localStorage.get(key)
-			// if localstorage is null, fallback to original values
-			this.$store.commit('setShowConfig', { key, value: localConfig !== null ? localConfig === 'true' : this.showConfig[key] })
-			return this.showConfig[key]
+		/**
+		 * Check if a quota matches the current search.
+		 * This is a custom filter function to allow to map "1GB" to the label "1 GB" (ignoring whitespaces).
+		 *
+		 * @param option The quota to check
+		 * @param label The label of the quota
+		 * @param search The search string
+		 */
+		filterQuotas(option, label, search) {
+			const searchValue = search.toLocaleLowerCase().replaceAll(/\s/g, '')
+			return (label || '')
+				.toLocaleLowerCase()
+				.replaceAll(/\s/g, '')
+				.indexOf(searchValue) > -1
 		},
 
-		setLocalStorage(key, status) {
+		setShowConfig(key, status) {
 			this.$store.commit('setShowConfig', { key, value: status })
-			this.$localStorage.set(key, status)
-			return status
 		},
 
 		/**
@@ -236,14 +286,13 @@ export default {
 				quota = quota?.id || quota.label
 			}
 			// only used for new presets sent through @Tag
-			const validQuota = OC.Util.computerFileSize(quota)
+			const validQuota = parseFileSize(quota, true)
 			if (validQuota === null) {
 				return unlimitedQuota
-			} else {
-				// unify format output
-				quota = OC.Util.humanFileSize(OC.Util.computerFileSize(quota))
-				return { id: quota, label: quota }
 			}
+			// unify format output
+			quota = formatFileSize(validQuota)
+			return { id: quota, label: quota }
 		},
 
 		/**
@@ -272,9 +321,8 @@ export default {
 }
 </script>
 
-<style lang="scss" scoped>
-label[for="default-quota-select"] {
-	display: block;
-	padding: 4px 0;
+<style scoped lang="scss">
+fieldset {
+	font-weight: bold;
 }
 </style>

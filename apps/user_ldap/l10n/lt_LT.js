@@ -6,7 +6,6 @@ OC.L10N.register(
     "Invalid configuration: Anonymous binding is not allowed." : "Neteisinga konfigūracija: Anoniminis prisijungimas neleidžiamas.",
     "Valid configuration, connection established!" : "Konfigūracija teisinga, ryšys užmegztas!",
     "Valid configuration, but binding failed. Please check the server settings and credentials." : "Konfigūracija teisinga, bet prisijungimas nepavyko. Patikrinkite serverio nustatymus ir prisijungimo duomenis.",
-    "Invalid configuration. Please have a look at the logs for further details." : "Neteisinga konfigūracija. Išsamesnei informacijai, žiūrėkite žurnalus.",
     "No action specified" : "Nenurodytas veiksmas",
     "No configuration specified" : "Nenurodyta jokia konfigūracija",
     "No data specified" : "Nepateikta duomenų",
@@ -72,6 +71,8 @@ OC.L10N.register(
     "The filter specifies which LDAP groups shall have access to the %s instance." : "Filtras nurodo, kurios LDAP grupės turi turėti prieigą prie %s",
     "Verify settings and count the groups" : "Patikrinkite nustatymus ir suskaičiuokite grupes",
     "When logging in, %s will find the user based on the following attributes:" : "Prisijungiant, %s suras naudotoją, remiantis šiais požymiais:",
+    "LDAP/AD Username:" : "LDAP/AD naudotojo vardas:",
+    "LDAP/AD Email Address:" : "LDAP/AD el. pašto adresas:",
     "Other Attributes:" : "Kiti požymiai:",
     "Defines the filter to apply, when login is attempted. \"%%uid\" replaces the username in the login action. Example: \"uid=%%uid\"" : "Apibrėžia filtrą, kuris taikomas bandant prisijungti. \"%%uid\" pakeičia naudotojo vardą prisijungimo metu. Pavyzdys: \"uid=%%uid\"",
     "Test Loginname" : "Ištestuokite prisijungimo vardą",
@@ -166,6 +167,7 @@ OC.L10N.register(
     "UUID Attribute for Users:" : "UUID požymis naudotojams:",
     "UUID Attribute for Groups:" : "UUID požymis grupėms:",
     "Username-LDAP User Mapping" : "Naudotojo vardo - LDAP naudotojo sąsaja",
-    "Clear Username-LDAP User Mapping" : "Išvalyti naudotojo vardo - LDAP naudotojo sąsają"
+    "Clear Username-LDAP User Mapping" : "Išvalyti naudotojo vardo - LDAP naudotojo sąsają",
+    "Invalid configuration. Please have a look at the logs for further details." : "Neteisinga konfigūracija. Išsamesnei informacijai, žiūrėkite žurnalus."
 },
 "nplurals=4; plural=(n % 10 == 1 && (n % 100 > 19 || n % 100 < 11) ? 0 : (n % 10 >= 2 && n % 10 <=9) && (n % 100 > 19 || n % 100 < 11) ? 1 : n % 1 != 0 ? 2: 3);");

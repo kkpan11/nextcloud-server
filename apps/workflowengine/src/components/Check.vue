@@ -1,3 +1,7 @@
+<!--
+  - SPDX-FileCopyrightText: 2019 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
 <template>
 	<div v-click-outside="hideDelete" class="check" @click="showDelete">
 		<NcSelect ref="checkSelector"
@@ -43,9 +47,9 @@
 </template>
 
 <script>
-import NcActions from '@nextcloud/vue/dist/Components/NcActions.js'
-import NcActionButton from '@nextcloud/vue/dist/Components/NcActionButton.js'
-import NcSelect from '@nextcloud/vue/dist/Components/NcSelect.js'
+import NcActions from '@nextcloud/vue/components/NcActions'
+import NcActionButton from '@nextcloud/vue/components/NcActionButton'
+import NcSelect from '@nextcloud/vue/components/NcSelect'
 
 import CloseIcon from 'vue-material-design-icons/Close.vue'
 
@@ -161,7 +165,7 @@ export default {
 		flex-wrap: wrap;
 		align-items: flex-start; // to not stretch components vertically
 		width: 100%;
-		padding-right: 20px;
+		padding-inline-end: 20px;
 
 		& > *:not(.close) {
 			width: 180px;
@@ -182,13 +186,15 @@ export default {
 		& > .v-select,
 		& > .button-vue,
 		& > input[type=text] {
-			margin-right: 5px;
+			margin-inline-end: 5px;
 			margin-bottom: 5px;
 		}
 	}
+
 	input[type=text] {
 		margin: 0;
 	}
+
 	.invalid {
 		border-color: var(--color-error) !important;
 	}

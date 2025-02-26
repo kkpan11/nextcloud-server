@@ -1,5 +1,9 @@
 <?php
-
+/**
+ * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 namespace Test\Encryption;
 
 use OC\Encryption\Util;
@@ -13,6 +17,7 @@ use Test\TestCase;
 class UtilTest extends TestCase {
 	/**
 	 * block size will always be 8192 for a PHP stream
+	 *
 	 * @see https://bugs.php.net/bug.php?id=21641
 	 */
 	protected int $headerSize = 8192;
@@ -51,7 +56,7 @@ class UtilTest extends TestCase {
 	/**
 	 * @dataProvider providesHeadersForEncryptionModule
 	 */
-	public function testGetEncryptionModuleId($expected, $header) {
+	public function testGetEncryptionModuleId($expected, $header): void {
 		$id = $this->util->getEncryptionModuleId($header);
 		$this->assertEquals($expected, $id);
 	}
@@ -67,7 +72,7 @@ class UtilTest extends TestCase {
 	/**
 	 * @dataProvider providesHeaders
 	 */
-	public function testCreateHeader($expected, $header, $moduleId) {
+	public function testCreateHeader($expected, $header, $moduleId): void {
 		$em = $this->createMock(IEncryptionModule::class);
 		$em->expects($this->any())->method('getId')->willReturn($moduleId);
 
@@ -85,7 +90,7 @@ class UtilTest extends TestCase {
 	}
 
 
-	public function testCreateHeaderFailed() {
+	public function testCreateHeaderFailed(): void {
 		$this->expectException(\OC\Encryption\Exceptions\EncryptionHeaderKeyExistsException::class);
 
 
@@ -100,7 +105,7 @@ class UtilTest extends TestCase {
 	/**
 	 * @dataProvider providePathsForTestIsExcluded
 	 */
-	public function testIsExcluded($path, $keyStorageRoot, $expected) {
+	public function testIsExcluded($path, $keyStorageRoot, $expected): void {
 		$this->config->expects($this->once())
 			->method('getAppValue')
 			->with('core', 'encryption_key_storage_root', '')
@@ -141,7 +146,7 @@ class UtilTest extends TestCase {
 	/**
 	 * @dataProvider dataTestIsFile
 	 */
-	public function testIsFile($path, $expected) {
+	public function testIsFile($path, $expected): void {
 		$this->assertSame($expected,
 			$this->util->isFile($path)
 		);
@@ -165,7 +170,7 @@ class UtilTest extends TestCase {
 	 * @param string $path
 	 * @param string $expected
 	 */
-	public function testStripPartialFileExtension($path, $expected) {
+	public function testStripPartialFileExtension($path, $expected): void {
 		$this->assertSame($expected,
 			$this->util->stripPartialFileExtension($path));
 	}
@@ -176,6 +181,76 @@ class UtilTest extends TestCase {
 			['/foo/test.txt.part', '/foo/test.txt'],
 			['/foo/test.txt.ocTransferId7567846853.part', '/foo/test.txt'],
 			['/foo/test.txt.ocTransferId7567.part', '/foo/test.txt'],
+		];
+	}
+
+	/**
+	 * @dataProvider dataTestParseRawHeader
+	 */
+	public function testParseRawHeader($rawHeader, $expected): void {
+		$result = $this->util->parseRawHeader($rawHeader);
+		$this->assertSameSize($expected, $result);
+		foreach ($result as $key => $value) {
+			$this->assertArrayHasKey($key, $expected);
+			$this->assertSame($expected[$key], $value);
+		}
+	}
+
+	public function dataTestParseRawHeader() {
+		return [
+			[str_pad('HBEGIN:oc_encryption_module:0:HEND', $this->headerSize, '-', STR_PAD_RIGHT)
+				, [Util::HEADER_ENCRYPTION_MODULE_KEY => '0']],
+			[str_pad('HBEGIN:oc_encryption_module:0:custom_header:foo:HEND', $this->headerSize, '-', STR_PAD_RIGHT)
+				, ['custom_header' => 'foo', Util::HEADER_ENCRYPTION_MODULE_KEY => '0']],
+			[str_pad('HelloWorld', $this->headerSize, '-', STR_PAD_RIGHT), []],
+			['', []],
+			[str_pad('HBEGIN:oc_encryption_module:0', $this->headerSize, '-', STR_PAD_RIGHT)
+				, []],
+			[str_pad('oc_encryption_module:0:HEND', $this->headerSize, '-', STR_PAD_RIGHT)
+				, []],
+		];
+	}
+
+	/**
+	 * @dataProvider dataTestGetFileKeyDir
+	 *
+	 * @param bool $isSystemWideMountPoint
+	 * @param string $storageRoot
+	 * @param string $expected
+	 */
+	public function testGetFileKeyDir($isSystemWideMountPoint, $storageRoot, $expected): void {
+		$path = '/user1/files/foo/bar.txt';
+		$owner = 'user1';
+		$relativePath = '/foo/bar.txt';
+
+		$util = $this->getMockBuilder(Util::class)
+			->onlyMethods(['isSystemWideMountPoint', 'getUidAndFilename', 'getKeyStorageRoot'])
+			->setConstructorArgs([
+				$this->view,
+				$this->userManager,
+				$this->groupManager,
+				$this->config
+			])
+			->getMock();
+
+		$util->expects($this->once())->method('getKeyStorageRoot')
+			->willReturn($storageRoot);
+		$util->expects($this->once())->method('isSystemWideMountPoint')
+			->willReturn($isSystemWideMountPoint);
+		$util->expects($this->once())->method('getUidAndFilename')
+			->with($path)->willReturn([$owner, $relativePath]);
+
+		$this->assertSame($expected,
+			$util->getFileKeyDir('OC_DEFAULT_MODULE', $path)
+		);
+	}
+
+	public function dataTestGetFileKeyDir() {
+		return [
+			[false, '', '/user1/files_encryption/keys/foo/bar.txt/OC_DEFAULT_MODULE/'],
+			[true, '', '/files_encryption/keys/foo/bar.txt/OC_DEFAULT_MODULE/'],
+			[false, 'newStorageRoot', '/newStorageRoot/user1/files_encryption/keys/foo/bar.txt/OC_DEFAULT_MODULE/'],
+			[true, 'newStorageRoot', '/newStorageRoot/files_encryption/keys/foo/bar.txt/OC_DEFAULT_MODULE/'],
 		];
 	}
 }

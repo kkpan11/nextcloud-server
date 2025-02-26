@@ -1,29 +1,11 @@
 <?php
 /**
- * @copyright 2017, Roeland Jago Douma <roeland@famdouma.nl>
- *
- * @author Roeland Jago Douma <roeland@famdouma.nl>
- *
- * @license GNU AGPL version 3 or any later version
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
+ * SPDX-FileCopyrightText: 2017 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 namespace Test\Share20;
 
-use OC\EventDispatcher\SymfonyAdapter;
 use OC\Share20\LegacyHooks;
 use OC\Share20\Manager;
 use OCP\Constants;
@@ -31,9 +13,14 @@ use OCP\EventDispatcher\IEventDispatcher;
 use OCP\Files\Cache\ICacheEntry;
 use OCP\Files\File;
 use OCP\IServerContainer;
+use OCP\Share\Events\BeforeShareCreatedEvent;
+use OCP\Share\Events\BeforeShareDeletedEvent;
+use OCP\Share\Events\ShareCreatedEvent;
+use OCP\Share\Events\ShareDeletedEvent;
+use OCP\Share\Events\ShareDeletedFromSelfEvent;
+use OCP\Share\IManager as IShareManager;
 use OCP\Share\IShare;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\EventDispatcher\GenericEvent;
 use Test\TestCase;
 
 class LegacyHooksTest extends TestCase {
@@ -51,13 +38,12 @@ class LegacyHooksTest extends TestCase {
 
 		$symfonyDispatcher = new \Symfony\Component\EventDispatcher\EventDispatcher();
 		$logger = $this->createMock(LoggerInterface::class);
-		$eventDispatcher = new \OC\EventDispatcher\EventDispatcher($symfonyDispatcher, \OC::$server->get(IServerContainer::class), $logger);
-		$this->eventDispatcher = new SymfonyAdapter($eventDispatcher, $logger);
-		$this->hooks = new LegacyHooks($eventDispatcher);
-		$this->manager = \OC::$server->getShareManager();
+		$this->eventDispatcher = new \OC\EventDispatcher\EventDispatcher($symfonyDispatcher, \OC::$server->get(IServerContainer::class), $logger);
+		$this->hooks = new LegacyHooks($this->eventDispatcher);
+		$this->manager = \OC::$server->get(IShareManager::class);
 	}
 
-	public function testPreUnshare() {
+	public function testPreUnshare(): void {
 		$path = $this->createMock(File::class);
 		$path->method('getId')->willReturn(1);
 
@@ -94,11 +80,11 @@ class LegacyHooksTest extends TestCase {
 			->method('pre')
 			->with($hookListnerExpectsPre);
 
-		$event = new GenericEvent($share);
-		$this->eventDispatcher->dispatch('OCP\Share::preUnshare', $event);
+		$event = new BeforeShareDeletedEvent($share);
+		$this->eventDispatcher->dispatchTyped($event);
 	}
 
-	public function testPostUnshare() {
+	public function testPostUnshare(): void {
 		$path = $this->createMock(File::class);
 		$path->method('getId')->willReturn(1);
 
@@ -148,12 +134,11 @@ class LegacyHooksTest extends TestCase {
 			->method('post')
 			->with($hookListnerExpectsPost);
 
-		$event = new GenericEvent($share);
-		$event->setArgument('deletedShares', [$share]);
-		$this->eventDispatcher->dispatch('OCP\Share::postUnshare', $event);
+		$event = new ShareDeletedEvent($share);
+		$this->eventDispatcher->dispatchTyped($event);
 	}
 
-	public function testPostUnshareFromSelf() {
+	public function testPostUnshareFromSelf(): void {
 		$path = $this->createMock(File::class);
 		$path->method('getId')->willReturn(1);
 
@@ -205,11 +190,11 @@ class LegacyHooksTest extends TestCase {
 			->method('postFromSelf')
 			->with($hookListnerExpectsPostFromSelf);
 
-		$event = new GenericEvent($share);
-		$this->eventDispatcher->dispatch('OCP\Share::postUnshareFromSelf', $event);
+		$event = new ShareDeletedFromSelfEvent($share);
+		$this->eventDispatcher->dispatchTyped($event);
 	}
 
-	public function testPreShare() {
+	public function testPreShare(): void {
 		$path = $this->createMock(File::class);
 		$path->method('getId')->willReturn(1);
 
@@ -253,11 +238,11 @@ class LegacyHooksTest extends TestCase {
 			->method('preShare')
 			->with($expected);
 
-		$event = new GenericEvent($share);
-		$this->eventDispatcher->dispatch('OCP\Share::preShare', $event);
+		$event = new BeforeShareCreatedEvent($share);
+		$this->eventDispatcher->dispatchTyped($event);
 	}
 
-	public function testPreShareError() {
+	public function testPreShareError(): void {
 		$path = $this->createMock(File::class);
 		$path->method('getId')->willReturn(1);
 
@@ -305,14 +290,14 @@ class LegacyHooksTest extends TestCase {
 				$data['error'] = 'I error';
 			});
 
-		$event = new GenericEvent($share);
-		$this->eventDispatcher->dispatch('OCP\Share::preShare', $event);
+		$event = new BeforeShareCreatedEvent($share);
+		$this->eventDispatcher->dispatchTyped($event);
 
 		$this->assertTrue($event->isPropagationStopped());
-		$this->assertSame('I error', $event->getArgument('error'));
+		$this->assertSame('I error', $event->getError());
 	}
 
-	public function testPostShare() {
+	public function testPostShare(): void {
 		$path = $this->createMock(File::class);
 		$path->method('getId')->willReturn(1);
 
@@ -355,7 +340,7 @@ class LegacyHooksTest extends TestCase {
 			->method('postShare')
 			->with($expected);
 
-		$event = new GenericEvent($share);
-		$this->eventDispatcher->dispatch('OCP\Share::postShare', $event);
+		$event = new ShareCreatedEvent($share);
+		$this->eventDispatcher->dispatchTyped($event);
 	}
 }

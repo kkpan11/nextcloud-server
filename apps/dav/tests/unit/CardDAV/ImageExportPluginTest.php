@@ -1,33 +1,16 @@
 <?php
+
 /**
- * @copyright Copyright (c) 2016, ownCloud, Inc.
- *
- * @author Christoph Wurst <christoph@winzerhof-wurst.at>
- * @author Georg Ehrke <oc.list@georgehrke.com>
- * @author Jacob Neplokh <me@jacobneplokh.com>
- * @author Morris Jobke <hey@morrisjobke.de>
- * @author Roeland Jago Douma <roeland@famdouma.nl>
- *
- * @license AGPL-3.0
- *
- * This code is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License, version 3,
- * as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License, version 3,
- * along with this program. If not, see <http://www.gnu.org/licenses/>
- *
+ * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 namespace OCA\DAV\Tests\unit\CardDAV;
 
 use OCA\DAV\CardDAV\AddressBook;
 use OCA\DAV\CardDAV\ImageExportPlugin;
 use OCA\DAV\CardDAV\PhotoCache;
+use OCP\AppFramework\Http;
 use OCP\Files\NotFoundException;
 use OCP\Files\SimpleFS\ISimpleFile;
 use Sabre\CardDAV\Card;
@@ -162,12 +145,11 @@ class ImageExportPluginTest extends TestCase {
 				->with(1, 'card', $size, $card)
 				->willReturn($file);
 
-			$this->response->expects($this->exactly(5))
+			$this->response->expects($this->exactly(4))
 				->method('setHeader')
 				->withConsecutive(
 					['Cache-Control', 'private, max-age=3600, must-revalidate'],
 					['Etag', '"myEtag"'],
-					['Pragma', 'public'],
 					['Content-Type', 'image/jpeg'],
 					['Content-Disposition', 'attachment; filename=card.jpg'],
 				);
@@ -179,19 +161,18 @@ class ImageExportPluginTest extends TestCase {
 				->method('setBody')
 				->with('imgdata');
 		} else {
-			$this->response->expects($this->exactly(3))
+			$this->response->expects($this->exactly(2))
 				->method('setHeader')
 				->withConsecutive(
 					['Cache-Control', 'private, max-age=3600, must-revalidate'],
 					['Etag', '"myEtag"'],
-					['Pragma', 'public'],
 				);
 			$this->cache->method('get')
 				->with(1, 'card', $size, $card)
 				->willThrowException(new NotFoundException());
 			$this->response->expects($this->once())
 				->method('setStatus')
-				->with(404);
+				->with(Http::STATUS_NO_CONTENT);
 		}
 
 		$result = $this->plugin->httpGet($this->request, $this->response);

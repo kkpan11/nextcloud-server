@@ -1,7 +1,7 @@
 { "translations": {
     "Dashboard" : "Dashboard",
     "Dashboard app" : "Dashboard app",
-    "Start your day informed\n\nThe Nextcloud Dashboard is your starting point of the day, giving you an overview of your upcoming appointments, urgent emails, chat messages, incoming tickets, latest tweets and much more! Users can add the widgets they like and change the background to their liking." : "Börja din dag informerad\n\nNextcloud Dashboard är din startpunkt på dagen som ger dig en överblick över dina kommande bokningar, brådskande e-post, chattmeddelanden, inkommande ärenden, senaste tweets och mycket mer! Användare kan lägga till widgetar de gillar och anpassa bakgrunden efter deras tycke.",
+    "Start your day informed\n\nThe Nextcloud Dashboard is your starting point of the day, giving you an overview of your upcoming appointments, urgent emails, chat messages, incoming tickets, latest tweets and much more! People can add the widgets they like and change the background to their liking." : "Börja din dag informerad\n\nNextcloud Dashboard är din startpunkt för dagen och ger dig en översikt över dina kommande möten, brådskande e-postmeddelanden, chattmeddelanden, inkommande ärenden, senaste tweets och mycket mer! Användare kan lägga till widgetar de gillar och anpassa bakgrunden efter deras tycke.",
     "\"{title} icon\"" : "\"{title}-ikon\"",
     "Customize" : "Anpassa",
     "Edit widgets" : "Ändra widgetar",
@@ -21,6 +21,7 @@
     "Good evening, {name}" : "God kväll, {name}",
     "Hello" : "Hej",
     "Hello, {name}" : "Hej, {name}",
-    "Start your day informed\n\nThe Nextcloud Dashboard is your starting point of the day, giving you an\noverview of your upcoming appointments, urgent emails, chat messages,\nincoming tickets, latest tweets and much more! Users can add the widgets\nthey like and change the background to their liking." : "Påbörja din dag informerad\n\nNextcloud Dashboard är din startpunkt på dagen som ger dig en\növerblick av dina kommande bokningar, brådskande e-post och chattmeddelanden,\ninkommande ärenden, senaste tweets och mycket mer! Användare kan lägga till widgetar\nde gillar och anpassa bakgrunden efter deras tycke."
+    "Happy birthday 🥳🤩🎂🎉" : "Grattis på födelsedagen 🥳🤩🎂🎉",
+    "Happy birthday, {name} 🥳🤩🎂🎉" : "Grattis på födelsedagen, {name} 🥳🤩🎂🎉"
 },"pluralForm" :"nplurals=2; plural=(n != 1);"
 }

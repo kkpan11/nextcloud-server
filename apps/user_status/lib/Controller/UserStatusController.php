@@ -3,31 +3,12 @@
 declare(strict_types=1);
 
 /**
- * @copyright Copyright (c) 2020, Georg Ehrke
- *
- * @author Georg Ehrke <oc.list@georgehrke.com>
- * @author Joas Schilling <coding@schilljs.com>
- * @author Simon Spannagel <simonspa@kth.se>
- * @author Kate Döen <kate.doeen@nextcloud.com>
- *
- * @license GNU AGPL version 3 or any later version
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- *
+ * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 namespace OCA\UserStatus\Controller;
 
+use OCA\DAV\CalDAV\Status\StatusService as CalendarStatusService;
 use OCA\UserStatus\Db\UserStatus;
 use OCA\UserStatus\Exception\InvalidClearAtException;
 use OCA\UserStatus\Exception\InvalidMessageIdException;
@@ -38,59 +19,44 @@ use OCA\UserStatus\ResponseDefinitions;
 use OCA\UserStatus\Service\StatusService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSBadRequestException;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\AppFramework\OCSController;
-use OCP\ILogger;
 use OCP\IRequest;
+use Psr\Log\LoggerInterface;
 
 /**
+ * @psalm-import-type UserStatusType from ResponseDefinitions
  * @psalm-import-type UserStatusPrivate from ResponseDefinitions
  */
 class UserStatusController extends OCSController {
-
-	/** @var string */
-	private $userId;
-
-	/** @var ILogger */
-	private $logger;
-
-	/** @var StatusService */
-	private $service;
-
-	/**
-	 * StatusesController constructor.
-	 *
-	 * @param string $appName
-	 * @param IRequest $request
-	 * @param string $userId
-	 * @param ILogger $logger;
-	 * @param StatusService $service
-	 */
-	public function __construct(string $appName,
-								IRequest $request,
-								string $userId,
-								ILogger $logger,
-								StatusService $service) {
+	public function __construct(
+		string $appName,
+		IRequest $request,
+		private ?string $userId,
+		private LoggerInterface $logger,
+		private StatusService $service,
+		private CalendarStatusService $calendarStatusService,
+	) {
 		parent::__construct($appName, $request);
-		$this->userId = $userId;
-		$this->logger = $logger;
-		$this->service = $service;
 	}
 
 	/**
 	 * Get the status of the current user
-	 *
-	 * @NoAdminRequired
 	 *
 	 * @return DataResponse<Http::STATUS_OK, UserStatusPrivate, array{}>
 	 * @throws OCSNotFoundException The user was not found
 	 *
 	 * 200: The status was found successfully
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/api/v1/user_status')]
 	public function getStatus(): DataResponse {
 		try {
+			$this->calendarStatusService->processCalendarStatus($this->userId);
 			$userStatus = $this->service->findByUserId($this->userId);
 		} catch (DoesNotExistException $ex) {
 			throw new OCSNotFoundException('No status for the current user');
@@ -102,14 +68,14 @@ class UserStatusController extends OCSController {
 	/**
 	 * Update the status type of the current user
 	 *
-	 * @NoAdminRequired
-	 *
 	 * @param string $statusType The new status type
 	 * @return DataResponse<Http::STATUS_OK, UserStatusPrivate, array{}>
 	 * @throws OCSBadRequestException The status type is invalid
 	 *
 	 * 200: The status was updated successfully
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'PUT', url: '/api/v1/user_status/status')]
 	public function setStatus(string $statusType): DataResponse {
 		try {
 			$status = $this->service->setStatus($this->userId, $statusType, null, true);
@@ -125,8 +91,6 @@ class UserStatusController extends OCSController {
 	/**
 	 * Set the message to a predefined message for the current user
 	 *
-	 * @NoAdminRequired
-	 *
 	 * @param string $messageId ID of the predefined message
 	 * @param int|null $clearAt When the message should be cleared
 	 * @return DataResponse<Http::STATUS_OK, UserStatusPrivate, array{}>
@@ -134,8 +98,10 @@ class UserStatusController extends OCSController {
 	 *
 	 * 200: The message was updated successfully
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'PUT', url: '/api/v1/user_status/message/predefined')]
 	public function setPredefinedMessage(string $messageId,
-										 ?int $clearAt): DataResponse {
+		?int $clearAt): DataResponse {
 		try {
 			$status = $this->service->setPredefinedMessage($this->userId, $messageId, $clearAt);
 			$this->service->removeBackupUserStatus($this->userId);
@@ -152,21 +118,22 @@ class UserStatusController extends OCSController {
 	/**
 	 * Set the message to a custom message for the current user
 	 *
-	 * @NoAdminRequired
-	 *
 	 * @param string|null $statusIcon Icon of the status
 	 * @param string|null $message Message of the status
 	 * @param int|null $clearAt When the message should be cleared
 	 * @return DataResponse<Http::STATUS_OK, UserStatusPrivate, array{}>
 	 * @throws OCSBadRequestException The clearAt or icon is invalid or the message is too long
+	 * @throws OCSNotFoundException No status for the current user
 	 *
 	 * 200: The message was updated successfully
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'PUT', url: '/api/v1/user_status/message/custom')]
 	public function setCustomMessage(?string $statusIcon,
-									 ?string $message,
-									 ?int $clearAt): DataResponse {
+		?string $message,
+		?int $clearAt): DataResponse {
 		try {
-			if (($message !== null && $message !== '') || ($clearAt !== null && $clearAt !== 0)) {
+			if (($statusIcon !== null && $statusIcon !== '') || ($message !== null && $message !== '') || ($clearAt !== null && $clearAt !== 0)) {
 				$status = $this->service->setCustomMessage($this->userId, $statusIcon, $message, $clearAt);
 			} else {
 				$this->service->clearMessage($this->userId);
@@ -183,16 +150,20 @@ class UserStatusController extends OCSController {
 		} catch (StatusMessageTooLongException $ex) {
 			$this->logger->debug('New user-status for "' . $this->userId . '" was rejected due to a too long status message.');
 			throw new OCSBadRequestException($ex->getMessage(), $ex);
+		} catch (DoesNotExistException $ex) {
+			throw new OCSNotFoundException('No status for the current user');
 		}
 	}
 
 	/**
 	 * Clear the message of the current user
 	 *
-	 * @NoAdminRequired
+	 * @return DataResponse<Http::STATUS_OK, list<empty>, array{}>
 	 *
-	 * @return DataResponse<Http::STATUS_OK, array<empty>, array{}>
+	 * 200: Message cleared successfully
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'DELETE', url: '/api/v1/user_status/message')]
 	public function clearMessage(): DataResponse {
 		$this->service->clearMessage($this->userId);
 		return new DataResponse([]);
@@ -201,14 +172,14 @@ class UserStatusController extends OCSController {
 	/**
 	 * Revert the status to the previous status
 	 *
-	 * @NoAdminRequired
-	 *
 	 * @param string $messageId ID of the message to delete
 	 *
-	 * @return DataResponse<Http::STATUS_OK, UserStatusPrivate|array<empty>, array{}>
+	 * @return DataResponse<Http::STATUS_OK, UserStatusPrivate|list<empty>, array{}>
 	 *
 	 * 200: Status reverted
 	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'DELETE', url: '/api/v1/user_status/revert/{messageId}')]
 	public function revertStatus(string $messageId): DataResponse {
 		$backupStatus = $this->service->revertUserStatus($this->userId, $messageId, true);
 		if ($backupStatus) {
@@ -222,6 +193,8 @@ class UserStatusController extends OCSController {
 	 * @return UserStatusPrivate
 	 */
 	private function formatStatus(UserStatus $status): array {
+		/** @var UserStatusType $visibleStatus */
+		$visibleStatus = $status->getStatus();
 		return [
 			'userId' => $status->getUserId(),
 			'message' => $status->getCustomMessage(),
@@ -229,7 +202,7 @@ class UserStatusController extends OCSController {
 			'messageIsPredefined' => $status->getMessageId() !== null,
 			'icon' => $status->getCustomIcon(),
 			'clearAt' => $status->getClearAt(),
-			'status' => $status->getStatus(),
+			'status' => $visibleStatus,
 			'statusIsUserDefined' => $status->getIsUserDefined(),
 		];
 	}

@@ -3,6 +3,8 @@ OC.L10N.register(
     {
     "Dashboard" : "ダッシュボード",
     "Dashboard app" : "ダッシュボードアプリ",
+    "Start your day informed\n\nThe Nextcloud Dashboard is your starting point of the day, giving you an overview of your upcoming appointments, urgent emails, chat messages, incoming tickets, latest tweets and much more! People can add the widgets they like and change the background to their liking." : "一日の始まりに情報を提供\n\nNextcloudダッシュボードは、一日のスタート地点であり、今後の予定、緊急のEメール、チャットメッセージ、受信チケット、最新のツイートなどの概要を提供します！好きなウィジェットを追加したり、背景を自分好みに変更することができます。",
+    "\"{title} icon\"" : "\"{title} アイコン\"",
     "Customize" : "カスタマイズ",
     "Edit widgets" : "ウィジェットを編集",
     "Get more widgets from the App Store" : "アプリストアから他のガジェットを入手",
@@ -21,6 +23,7 @@ OC.L10N.register(
     "Good evening, {name}" : "こんばんは、{name} さん",
     "Hello" : "こんにちは",
     "Hello, {name}" : "こんにちは、{name} さん",
-    "Start your day informed\n\nThe Nextcloud Dashboard is your starting point of the day, giving you an\noverview of your upcoming appointments, urgent emails, chat messages,\nincoming tickets, latest tweets and much more! Users can add the widgets\nthey like and change the background to their liking." : "情報に基づいて1日を始めましょう\n\nNextcloud ダッシュボードは、あなたの1日の始まりであり、予定されているアポイントの概要、重要なメール、チャットメッセージ、受信したチケット、最新のツイートなどをお届けします！ユーザーは、自由にウィジェットを追加し、背景もお好みのものに変更が可能です。"
+    "Happy birthday 🥳🤩🎂🎉" : "お誕生日おめでとう 🥳🤩🎂🎉",
+    "Happy birthday, {name} 🥳🤩🎂🎉" : "お誕生日おめでとう、{name} 🥳🤩🎂🎉"
 },
 "nplurals=1; plural=0;");

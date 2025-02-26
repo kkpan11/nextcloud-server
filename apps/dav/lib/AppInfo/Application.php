@@ -3,37 +3,15 @@
 declare(strict_types=1);
 
 /**
- * @copyright Copyright (c) 2016, ownCloud, Inc.
- *
- * @author Bjoern Schiessle <bjoern@schiessle.org>
- * @author Christoph Wurst <christoph@winzerhof-wurst.at>
- * @author Georg Ehrke <oc.list@georgehrke.com>
- * @author Joas Schilling <coding@schilljs.com>
- * @author John Molakvoæ <skjnldsv@protonmail.com>
- * @author Roeland Jago Douma <roeland@famdouma.nl>
- * @author Thomas Citharel <nextcloud@tcit.fr>
- * @author Thomas Müller <thomas.mueller@tmit.eu>
- * @author Tobia De Koninck <tobia@ledfan.be>
- *
- * @license AGPL-3.0
- *
- * This code is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License, version 3,
- * as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License, version 3,
- * along with this program. If not, see <http://www.gnu.org/licenses/>
- *
+ * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 namespace OCA\DAV\AppInfo;
 
 use OCA\DAV\CalDAV\Activity\Backend;
 use OCA\DAV\CalDAV\AppCalendar\AppCalendarPlugin;
+use OCA\DAV\CalDAV\CachedSubscriptionProvider;
 use OCA\DAV\CalDAV\CalendarManager;
 use OCA\DAV\CalDAV\CalendarProvider;
 use OCA\DAV\CalDAV\Reminder\NotificationProvider\AudioProvider;
@@ -41,7 +19,6 @@ use OCA\DAV\CalDAV\Reminder\NotificationProvider\EmailProvider;
 use OCA\DAV\CalDAV\Reminder\NotificationProvider\PushProvider;
 use OCA\DAV\CalDAV\Reminder\NotificationProviderManager;
 use OCA\DAV\CalDAV\Reminder\Notifier;
-
 use OCA\DAV\Capabilities;
 use OCA\DAV\CardDAV\ContactsManager;
 use OCA\DAV\CardDAV\PhotoCache;
@@ -69,10 +46,8 @@ use OCA\DAV\Events\CardDeletedEvent;
 use OCA\DAV\Events\CardUpdatedEvent;
 use OCA\DAV\Events\SubscriptionCreatedEvent;
 use OCA\DAV\Events\SubscriptionDeletedEvent;
-use OCP\EventDispatcher\IEventDispatcher;
-use OCP\Federation\Events\TrustedServerRemovedEvent;
-use OCA\DAV\HookManager;
 use OCA\DAV\Listener\ActivityUpdaterListener;
+use OCA\DAV\Listener\AddMissingIndicesListener;
 use OCA\DAV\Listener\AddressbookListener;
 use OCA\DAV\Listener\BirthdayListener;
 use OCA\DAV\Listener\CalendarContactInteractionListener;
@@ -82,14 +57,19 @@ use OCA\DAV\Listener\CalendarPublicationListener;
 use OCA\DAV\Listener\CalendarShareUpdateListener;
 use OCA\DAV\Listener\CardListener;
 use OCA\DAV\Listener\ClearPhotoCacheListener;
+use OCA\DAV\Listener\OutOfOfficeListener;
 use OCA\DAV\Listener\SubscriptionListener;
 use OCA\DAV\Listener\TrustedServerRemovedListener;
+use OCA\DAV\Listener\UserEventsListener;
 use OCA\DAV\Listener\UserPreferenceListener;
 use OCA\DAV\Search\ContactsSearchProvider;
 use OCA\DAV\Search\EventsSearchProvider;
 use OCA\DAV\Search\TasksSearchProvider;
+use OCA\DAV\SetupChecks\NeedsSystemAddressBookSync;
+use OCA\DAV\SetupChecks\WebdavEndpoint;
 use OCA\DAV\UserMigration\CalendarMigrator;
 use OCA\DAV\UserMigration\ContactsMigrator;
+use OCP\Accounts\UserUpdatedEvent;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
@@ -99,12 +79,25 @@ use OCP\Calendar\IManager as ICalendarManager;
 use OCP\Config\BeforePreferenceDeletedEvent;
 use OCP\Config\BeforePreferenceSetEvent;
 use OCP\Contacts\IManager as IContactsManager;
+use OCP\DB\Events\AddMissingIndicesEvent;
+use OCP\EventDispatcher\IEventDispatcher;
+use OCP\Federation\Events\TrustedServerRemovedEvent;
 use OCP\Files\AppData\IAppDataFactory;
-use OCP\IServerContainer;
-use OCP\IUser;
+use OCP\IUserSession;
+use OCP\Server;
+use OCP\User\Events\BeforeUserDeletedEvent;
+use OCP\User\Events\BeforeUserIdUnassignedEvent;
+use OCP\User\Events\OutOfOfficeChangedEvent;
+use OCP\User\Events\OutOfOfficeClearedEvent;
+use OCP\User\Events\OutOfOfficeScheduledEvent;
+use OCP\User\Events\UserChangedEvent;
+use OCP\User\Events\UserCreatedEvent;
+use OCP\User\Events\UserDeletedEvent;
+use OCP\User\Events\UserFirstTimeLoggedInEvent;
+use OCP\User\Events\UserIdAssignedEvent;
+use OCP\User\Events\UserIdUnassignedEvent;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\EventDispatcher\GenericEvent;
 use Throwable;
 use function is_null;
 
@@ -123,12 +116,12 @@ class Application extends App implements IBootstrap {
 				$c->get(LoggerInterface::class)
 			);
 		});
-		$context->registerService(AppCalendarPlugin::class, function(ContainerInterface $c) {
+		$context->registerService(AppCalendarPlugin::class, function (ContainerInterface $c) {
 			return new AppCalendarPlugin(
-			  $c->get(ICalendarManager::class),
-			  $c->get(LoggerInterface::class)
+				$c->get(ICalendarManager::class),
+				$c->get(LoggerInterface::class)
 			);
-		  });
+		});
 
 		/*
 		 * Register capabilities
@@ -145,6 +138,8 @@ class Application extends App implements IBootstrap {
 		/**
 		 * Register event listeners
 		 */
+		$context->registerEventListener(AddMissingIndicesEvent::class, AddMissingIndicesListener::class);
+
 		$context->registerEventListener(CalendarCreatedEvent::class, ActivityUpdaterListener::class);
 		$context->registerEventListener(CalendarDeletedEvent::class, ActivityUpdaterListener::class);
 		$context->registerEventListener(CalendarDeletedEvent::class, CalendarObjectReminderUpdaterListener::class);
@@ -194,12 +189,29 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(BeforePreferenceDeletedEvent::class, UserPreferenceListener::class);
 		$context->registerEventListener(BeforePreferenceSetEvent::class, UserPreferenceListener::class);
 
+		$context->registerEventListener(OutOfOfficeChangedEvent::class, OutOfOfficeListener::class);
+		$context->registerEventListener(OutOfOfficeClearedEvent::class, OutOfOfficeListener::class);
+		$context->registerEventListener(OutOfOfficeScheduledEvent::class, OutOfOfficeListener::class);
+
+		$context->registerEventListener(UserFirstTimeLoggedInEvent::class, UserEventsListener::class);
+		$context->registerEventListener(UserIdAssignedEvent::class, UserEventsListener::class);
+		$context->registerEventListener(BeforeUserIdUnassignedEvent::class, UserEventsListener::class);
+		$context->registerEventListener(UserIdUnassignedEvent::class, UserEventsListener::class);
+		$context->registerEventListener(BeforeUserDeletedEvent::class, UserEventsListener::class);
+		$context->registerEventListener(UserDeletedEvent::class, UserEventsListener::class);
+		$context->registerEventListener(UserCreatedEvent::class, UserEventsListener::class);
+		$context->registerEventListener(UserChangedEvent::class, UserEventsListener::class);
+
 		$context->registerNotifierService(Notifier::class);
 
 		$context->registerCalendarProvider(CalendarProvider::class);
+		$context->registerCalendarProvider(CachedSubscriptionProvider::class);
 
 		$context->registerUserMigrator(CalendarMigrator::class);
 		$context->registerUserMigrator(ContactsMigrator::class);
+
+		$context->registerSetupCheck(NeedsSystemAddressBookSync::class);
+		$context->registerSetupCheck(WebdavEndpoint::class);
 	}
 
 	public function boot(IBootContext $context): void {
@@ -212,29 +224,18 @@ class Application extends App implements IBootstrap {
 		$context->injectFn([$this, 'registerCalendarReminders']);
 	}
 
-	public function registerHooks(HookManager $hm,
-								   IEventDispatcher $dispatcher,
-								   IAppContainer $container) {
-		$hm->setup();
-
-		// first time login event setup
-		$dispatcher->addListener(IUser::class . '::firstLogin', function ($event) use ($hm) {
-			if ($event instanceof GenericEvent) {
-				$hm->firstLogin($event->getSubject());
-			}
-		});
-
-		$dispatcher->addListener('OC\AccountManager::userUpdated', function ($event) use ($container) {
-			if ($event instanceof GenericEvent) {
-				$user = $event->getSubject();
-				/** @var SyncService $syncService */
-				$syncService = $container->query(SyncService::class);
-				$syncService->updateUser($user);
-			}
+	public function registerHooks(
+		IEventDispatcher $dispatcher,
+		IAppContainer $container,
+	): void {
+		$dispatcher->addListener(UserUpdatedEvent::class, function (UserUpdatedEvent $event) use ($container): void {
+			/** @var SyncService $syncService */
+			$syncService = Server::get(SyncService::class);
+			$syncService->updateUser($event->getUser());
 		});
 
 
-		$dispatcher->addListener(CalendarShareUpdatedEvent::class, function (CalendarShareUpdatedEvent $event) use ($container) {
+		$dispatcher->addListener(CalendarShareUpdatedEvent::class, function (CalendarShareUpdatedEvent $event) use ($container): void {
 			/** @var Backend $backend */
 			$backend = $container->query(Backend::class);
 			$backend->onCalendarUpdateShares(
@@ -250,7 +251,7 @@ class Application extends App implements IBootstrap {
 
 	public function registerContactsManager(IContactsManager $cm, IAppContainer $container): void {
 		$cm->register(function () use ($container, $cm): void {
-			$user = \OC::$server->getUserSession()->getUser();
+			$user = Server::get(IUserSession::class)->getUser();
 			if (!is_null($user)) {
 				$this->setupContactsProvider($cm, $container, $user->getUID());
 			} else {
@@ -260,8 +261,8 @@ class Application extends App implements IBootstrap {
 	}
 
 	private function setupContactsProvider(IContactsManager $contactsManager,
-										   IAppContainer $container,
-										   string $userID): void {
+		IAppContainer $container,
+		string $userID): void {
 		/** @var ContactsManager $cm */
 		$cm = $container->query(ContactsManager::class);
 		$urlGenerator = $container->getServer()->getURLGenerator();
@@ -269,7 +270,7 @@ class Application extends App implements IBootstrap {
 	}
 
 	private function setupSystemContactsProvider(IContactsManager $contactsManager,
-												 IAppContainer $container): void {
+		IAppContainer $container): void {
 		/** @var ContactsManager $cm */
 		$cm = $container->query(ContactsManager::class);
 		$urlGenerator = $container->getServer()->getURLGenerator();
@@ -277,9 +278,9 @@ class Application extends App implements IBootstrap {
 	}
 
 	public function registerCalendarManager(ICalendarManager $calendarManager,
-											 IAppContainer $container): void {
-		$calendarManager->register(function () use ($container, $calendarManager) {
-			$user = \OC::$server->getUserSession()->getUser();
+		IAppContainer $container): void {
+		$calendarManager->register(function () use ($container, $calendarManager): void {
+			$user = Server::get(IUserSession::class)->getUser();
 			if ($user !== null) {
 				$this->setupCalendarProvider($calendarManager, $container, $user->getUID());
 			}
@@ -287,14 +288,14 @@ class Application extends App implements IBootstrap {
 	}
 
 	private function setupCalendarProvider(ICalendarManager $calendarManager,
-										   IAppContainer $container,
-										   $userId) {
+		IAppContainer $container,
+		$userId) {
 		$cm = $container->query(CalendarManager::class);
 		$cm->setupCalendarProvider($calendarManager, $userId);
 	}
 
 	public function registerCalendarReminders(NotificationProviderManager $manager,
-											   LoggerInterface $logger): void {
+		LoggerInterface $logger): void {
 		try {
 			$manager->registerProvider(AudioProvider::class);
 			$manager->registerProvider(EmailProvider::class);
