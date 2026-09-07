@@ -18,7 +18,11 @@ use OCA\OAuth2\Db\AccessTokenMapper;
 use OCA\OAuth2\Db\Client;
 use OCA\OAuth2\Db\ClientMapper;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\ContentSecurityPolicy;
+use OCP\AppFramework\Http\RedirectResponse;
+use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
+use OCP\AppFramework\Services\IInitialState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Defaults;
 use OCP\EventDispatcher\IEventDispatcher;
@@ -50,9 +54,11 @@ class ClientFlowLoginControllerTest extends TestCase {
 	private IEventDispatcher&MockObject $eventDispatcher;
 	private ITimeFactory&MockObject $timeFactory;
 	private IConfig&MockObject $config;
+	private IInitialState&MockObject $initialState;
 
 	private ClientFlowLoginController $clientFlowLoginController;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -76,6 +82,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 		$this->eventDispatcher = $this->createMock(IEventDispatcher::class);
 		$this->timeFactory = $this->createMock(ITimeFactory::class);
 		$this->config = $this->createMock(IConfig::class);
+		$this->initialState = $this->createMock(IInitialState::class);
 
 		$this->clientFlowLoginController = new ClientFlowLoginController(
 			'core',
@@ -93,6 +100,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 			$this->eventDispatcher,
 			$this->timeFactory,
 			$this->config,
+			$this->initialState,
 		);
 	}
 
@@ -101,8 +109,8 @@ class ClientFlowLoginControllerTest extends TestCase {
 			'core',
 			'error',
 			[
-				'errors' =>
-					[
+				'errors'
+					=> [
 						[
 							'error' => 'Access Forbidden',
 							'hint' => 'Invalid request',
@@ -119,7 +127,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 		$this->request
 			->method('getHeader')
 			->willReturnMap([
-				['USER_AGENT', 'Mac OS X Sync Client'],
+				['user-agent', 'Mac OS X Sync Client'],
 				['OCS-APIREQUEST', 'true'],
 			]);
 		$this->random
@@ -135,7 +143,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 			->method('set')
 			->with('client.flow.state.token', 'StateToken');
 		$this->session
-			->expects($this->once())
+			->expects($this->atLeastOnce())
 			->method('get')
 			->with('oauth.state')
 			->willReturn('OauthStateToken');
@@ -151,39 +159,51 @@ class ClientFlowLoginControllerTest extends TestCase {
 			->method('getServerProtocol')
 			->willReturn('https');
 
+		$initialState = [];
+		$this->initialState->expects($this->exactly(2))
+			->method('provideInitialState')
+			->willReturnCallback(function () use (&$initialState): void {
+				$initialState[] = func_get_args();
+			});
+
 		$expected = new StandaloneTemplateResponse(
 			'core',
-			'loginflow/authpicker',
-			[
-				'client' => 'Mac OS X Sync Client',
-				'clientIdentifier' => '',
-				'instanceName' => 'ExampleCloud',
-				'urlGenerator' => $this->urlGenerator,
-				'stateToken' => 'StateToken',
-				'serverHost' => 'https://example.com',
-				'oauthState' => 'OauthStateToken',
-				'user' => '',
-				'direct' => 0,
-				'providedRedirectUri' => '',
-			],
-			'guest'
+			'loginflow',
+			renderAs: 'guest'
 		);
-		$csp = new Http\ContentSecurityPolicy();
+		$csp = new ContentSecurityPolicy();
 		$csp->addAllowedFormActionDomain('nc://*');
 		$expected->setContentSecurityPolicy($csp);
 		$this->assertEquals($expected, $this->clientFlowLoginController->showAuthPickerPage());
+		self::assertEquals([
+			['loginFlowState', 'auth'],
+			[
+				'loginFlowAuth', [
+					'client' => 'Mac OS X Sync Client',
+					'clientIdentifier' => '',
+					'instanceName' => 'ExampleCloud',
+					'stateToken' => 'StateToken',
+					'serverHost' => 'https://example.com',
+					'oauthState' => 'OauthStateToken',
+					'direct' => false,
+					'providedRedirectUri' => '',
+					'appTokenUrl' => '',
+					'loginRedirectUrl' => '',
+				],
+			],
+		], $initialState);
 	}
 
 	public function testShowAuthPickerPageWithOauth(): void {
 		$this->request
 			->method('getHeader')
 			->willReturnMap([
-				['USER_AGENT', 'Mac OS X Sync Client'],
+				['user-agent', 'Mac OS X Sync Client'],
 				['OCS-APIREQUEST', 'false'],
 			]);
 		$client = new Client();
-		$client->setName('My external service');
-		$client->setRedirectUri('https://example.com/redirect.php');
+		$client->name = 'My external service';
+		$client->redirectUri = 'https://example.com/redirect.php';
 		$this->clientMapper
 			->expects($this->once())
 			->method('getByIdentifier')
@@ -202,7 +222,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 			->method('set')
 			->with('client.flow.state.token', 'StateToken');
 		$this->session
-			->expects($this->once())
+			->expects($this->atLeastOnce())
 			->method('get')
 			->with('oauth.state')
 			->willReturn('OauthStateToken');
@@ -218,27 +238,39 @@ class ClientFlowLoginControllerTest extends TestCase {
 			->method('getServerProtocol')
 			->willReturn('https');
 
+		$initialState = [];
+		$this->initialState->expects($this->exactly(2))
+			->method('provideInitialState')
+			->willReturnCallback(function () use (&$initialState): void {
+				$initialState[] = func_get_args();
+			});
+
 		$expected = new StandaloneTemplateResponse(
 			'core',
-			'loginflow/authpicker',
-			[
-				'client' => 'My external service',
-				'clientIdentifier' => 'MyClientIdentifier',
-				'instanceName' => 'ExampleCloud',
-				'urlGenerator' => $this->urlGenerator,
-				'stateToken' => 'StateToken',
-				'serverHost' => 'https://example.com',
-				'oauthState' => 'OauthStateToken',
-				'user' => '',
-				'direct' => 0,
-				'providedRedirectUri' => '',
-			],
-			'guest'
+			'loginflow',
+			renderAs: 'guest'
 		);
-		$csp = new Http\ContentSecurityPolicy();
+		$csp = new ContentSecurityPolicy();
 		$csp->addAllowedFormActionDomain('https://example.com/redirect.php');
 		$expected->setContentSecurityPolicy($csp);
 		$this->assertEquals($expected, $this->clientFlowLoginController->showAuthPickerPage('MyClientIdentifier'));
+		self::assertEquals([
+			['loginFlowState', 'auth'],
+			[
+				'loginFlowAuth', [
+					'client' => 'My external service',
+					'clientIdentifier' => 'MyClientIdentifier',
+					'instanceName' => 'ExampleCloud',
+					'stateToken' => 'StateToken',
+					'serverHost' => 'https://example.com',
+					'oauthState' => 'OauthStateToken',
+					'direct' => false,
+					'providedRedirectUri' => '',
+					'appTokenUrl' => '',
+					'loginRedirectUrl' => '',
+				],
+			],
+		], $initialState);
 	}
 
 	public function testGenerateAppPasswordWithInvalidToken(): void {
@@ -279,7 +311,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 			->method('getId')
 			->willThrowException(new SessionNotAvailableException());
 
-		$expected = new Http\Response();
+		$expected = new Response();
 		$expected->setStatus(Http::STATUS_FORBIDDEN);
 		$this->assertEquals($expected, $this->clientFlowLoginController->generateAppPassword('MyStateToken'));
 	}
@@ -304,7 +336,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 			->with('SessionId')
 			->willThrowException(new InvalidTokenException());
 
-		$expected = new Http\Response();
+		$expected = new Response();
 		$expected->setStatus(Http::STATUS_FORBIDDEN);
 		$this->assertEquals($expected, $this->clientFlowLoginController->generateAppPassword('MyStateToken'));
 	}
@@ -380,7 +412,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 		$this->eventDispatcher->expects($this->once())
 			->method('dispatchTyped');
 
-		$expected = new Http\RedirectResponse('nc://login/server:http://example.com&user:MyLoginName&password:MyGeneratedToken');
+		$expected = new RedirectResponse('nc://login/server:http://example.com&user:MyLoginName&password:MyGeneratedToken');
 		$this->assertEquals($expected, $this->clientFlowLoginController->generateAppPassword('MyStateToken'));
 	}
 
@@ -406,7 +438,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 		];
 		$this->session
 			->method('remove')
-			->willReturnCallback(function ($key) use (&$calls) {
+			->willReturnCallback(function ($key) use (&$calls): void {
 				$expected = array_shift($calls);
 				$this->assertEquals($expected, $key);
 			});
@@ -459,8 +491,9 @@ class ClientFlowLoginControllerTest extends TestCase {
 			)
 			->willReturn($token);
 		$client = new Client();
-		$client->setName('My OAuth client');
-		$client->setRedirectUri($redirectUri);
+		$client->id = 42;
+		$client->name = 'My OAuth client';
+		$client->redirectUri = $redirectUri;
 		$this->clientMapper
 			->expects($this->once())
 			->method('getByIdentifier')
@@ -470,7 +503,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 		$this->eventDispatcher->expects($this->once())
 			->method('dispatchTyped');
 
-		$expected = new Http\RedirectResponse($redirectUrl);
+		$expected = new RedirectResponse($redirectUrl);
 		$this->assertEquals($expected, $this->clientFlowLoginController->generateAppPassword('MyStateToken', 'MyClientIdentifier'));
 	}
 
@@ -545,7 +578,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 		$this->eventDispatcher->expects($this->once())
 			->method('dispatchTyped');
 
-		$expected = new Http\RedirectResponse('nc://login/server:http://example.com&user:MyLoginName&password:MyGeneratedToken');
+		$expected = new RedirectResponse('nc://login/server:http://example.com&user:MyLoginName&password:MyGeneratedToken');
 		$this->assertEquals($expected, $this->clientFlowLoginController->generateAppPassword('MyStateToken'));
 	}
 
@@ -555,7 +588,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 				[
 					['X-Forwarded-Proto', 'http'],
 					['X-Forwarded-Ssl', 'off'],
-					['USER_AGENT', ''],
+					['user-agent', ''],
 				],
 				'http',
 				'http',
@@ -564,7 +597,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 				[
 					['X-Forwarded-Proto', 'http'],
 					['X-Forwarded-Ssl', 'off'],
-					['USER_AGENT', ''],
+					['user-agent', ''],
 				],
 				'https',
 				'https',
@@ -573,7 +606,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 				[
 					['X-Forwarded-Proto', 'https'],
 					['X-Forwarded-Ssl', 'off'],
-					['USER_AGENT', ''],
+					['user-agent', ''],
 				],
 				'http',
 				'https',
@@ -582,7 +615,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 				[
 					['X-Forwarded-Proto', 'https'],
 					['X-Forwarded-Ssl', 'on'],
-					['USER_AGENT', ''],
+					['user-agent', ''],
 				],
 				'http',
 				'https',
@@ -591,7 +624,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 				[
 					['X-Forwarded-Proto', 'http'],
 					['X-Forwarded-Ssl', 'on'],
-					['USER_AGENT', ''],
+					['user-agent', ''],
 				],
 				'http',
 				'https',
@@ -600,11 +633,11 @@ class ClientFlowLoginControllerTest extends TestCase {
 	}
 
 	/**
-	 * @dataProvider dataGeneratePasswordWithHttpsProxy
 	 * @param array $headers
 	 * @param string $protocol
 	 * @param string $expected
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataGeneratePasswordWithHttpsProxy')]
 	public function testGeneratePasswordWithHttpsProxy(array $headers, $protocol, $expected): void {
 		$this->session
 			->expects($this->once())
@@ -676,7 +709,7 @@ class ClientFlowLoginControllerTest extends TestCase {
 		$this->eventDispatcher->expects($this->once())
 			->method('dispatchTyped');
 
-		$expected = new Http\RedirectResponse('nc://login/server:' . $expected . '://example.com&user:MyLoginName&password:MyGeneratedToken');
+		$expected = new RedirectResponse('nc://login/server:' . $expected . '://example.com&user:MyLoginName&password:MyGeneratedToken');
 		$this->assertEquals($expected, $this->clientFlowLoginController->generateAppPassword('MyStateToken'));
 	}
 }

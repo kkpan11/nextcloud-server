@@ -1,8 +1,10 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2017 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OCA\DAV\Connector\Sabre;
 
 use Sabre\DAV\Tree;
@@ -22,6 +24,7 @@ class CachingTree extends Tree {
 	 * @param string $path
 	 * @return void
 	 */
+	#[\Override]
 	public function markDirty($path) {
 		// We don't care enough about sub-paths
 		// flushing the entire cache

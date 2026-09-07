@@ -1,9 +1,11 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OCA\Files_External\Tests\Service;
 
 use OCA\Files_External\Config\IConfigHandler;
@@ -13,25 +15,23 @@ use OCA\Files_External\Lib\Config\IAuthMechanismProvider;
 use OCA\Files_External\Lib\Config\IBackendProvider;
 use OCA\Files_External\Service\BackendService;
 use OCP\IAppConfig;
+use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Log\LoggerInterface;
 
 class BackendServiceTest extends \Test\TestCase {
-
-	/** @var IAppConfig|\PHPUnit\Framework\MockObject\MockObject */
-	protected $appConfig;
+	protected IAppConfig&MockObject $appConfig;
+	protected LoggerInterface&MockObject $logger;
 
 	protected function setUp(): void {
 		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->logger = $this->createMock(LoggerInterface::class);
 	}
 
 	/**
-	 * @param string $class
-	 *
-	 * @return \OCA\Files_External\Lib\Backend\Backend|\PHPUnit\Framework\MockObject\MockObject
+	 * @return \OCA\Files_External\Lib\Backend\Backend&MockObject
 	 */
-	protected function getBackendMock($class) {
-		$backend = $this->getMockBuilder(Backend::class)
-			->disableOriginalConstructor()
-			->getMock();
+	protected function getBackendMock(string $class) {
+		$backend = $this->createMock(Backend::class);
 		$backend->method('getIdentifier')->willReturn('identifier:' . $class);
 		$backend->method('getIdentifierAliases')->willReturn(['identifier:' . $class]);
 		return $backend;
@@ -40,26 +40,22 @@ class BackendServiceTest extends \Test\TestCase {
 	/**
 	 * @param string $class
 	 *
-	 * @return AuthMechanism|\PHPUnit\Framework\MockObject\MockObject
+	 * @return AuthMechanism&MockObject
 	 */
 	protected function getAuthMechanismMock($class) {
-		$backend = $this->getMockBuilder(AuthMechanism::class)
-			->disableOriginalConstructor()
-			->getMock();
+		$backend = $this->createMock(AuthMechanism::class);
 		$backend->method('getIdentifier')->willReturn('identifier:' . $class);
 		$backend->method('getIdentifierAliases')->willReturn(['identifier:' . $class]);
 		return $backend;
 	}
 
 	public function testRegisterBackend(): void {
-		$service = new BackendService($this->appConfig);
+		$service = new BackendService($this->appConfig, $this->logger);
 
 		$backend = $this->getBackendMock('\Foo\Bar');
 
-		/** @var \OCA\Files_External\Lib\Backend\Backend|\PHPUnit\Framework\MockObject\MockObject $backendAlias */
-		$backendAlias = $this->getMockBuilder(Backend::class)
-			->disableOriginalConstructor()
-			->getMock();
+		/** @var \OCA\Files_External\Lib\Backend\Backend&MockObject $backendAlias */
+		$backendAlias = $this->createMock(Backend::class);
 		$backendAlias->method('getIdentifierAliases')
 			->willReturn(['identifier_real', 'identifier_alias']);
 		$backendAlias->method('getIdentifier')
@@ -80,12 +76,12 @@ class BackendServiceTest extends \Test\TestCase {
 	}
 
 	public function testBackendProvider(): void {
-		$service = new BackendService($this->appConfig);
+		$service = new BackendService($this->appConfig, $this->logger);
 
 		$backend1 = $this->getBackendMock('\Foo\Bar');
 		$backend2 = $this->getBackendMock('\Bar\Foo');
 
-		/** @var IBackendProvider|\PHPUnit\Framework\MockObject\MockObject $providerMock */
+		/** @var IBackendProvider&MockObject $providerMock */
 		$providerMock = $this->createMock(IBackendProvider::class);
 		$providerMock->expects($this->once())
 			->method('getBackends')
@@ -99,12 +95,12 @@ class BackendServiceTest extends \Test\TestCase {
 	}
 
 	public function testAuthMechanismProvider(): void {
-		$service = new BackendService($this->appConfig);
+		$service = new BackendService($this->appConfig, $this->logger);
 
 		$backend1 = $this->getAuthMechanismMock('\Foo\Bar');
 		$backend2 = $this->getAuthMechanismMock('\Bar\Foo');
 
-		/** @var IAuthMechanismProvider|\PHPUnit\Framework\MockObject\MockObject $providerMock */
+		/** @var IAuthMechanismProvider&MockObject $providerMock */
 		$providerMock = $this->createMock(IAuthMechanismProvider::class);
 		$providerMock->expects($this->once())
 			->method('getAuthMechanisms')
@@ -118,20 +114,20 @@ class BackendServiceTest extends \Test\TestCase {
 	}
 
 	public function testMultipleBackendProviders(): void {
-		$service = new BackendService($this->appConfig);
+		$service = new BackendService($this->appConfig, $this->logger);
 
 		$backend1a = $this->getBackendMock('\Foo\Bar');
 		$backend1b = $this->getBackendMock('\Bar\Foo');
 
 		$backend2 = $this->getBackendMock('\Dead\Beef');
 
-		/** @var IBackendProvider|\PHPUnit\Framework\MockObject\MockObject $provider1Mock */
+		/** @var IBackendProvider&MockObject $provider1Mock */
 		$provider1Mock = $this->createMock(IBackendProvider::class);
 		$provider1Mock->expects($this->once())
 			->method('getBackends')
 			->willReturn([$backend1a, $backend1b]);
 		$service->registerBackendProvider($provider1Mock);
-		/** @var IBackendProvider|\PHPUnit\Framework\MockObject\MockObject $provider2Mock */
+		/** @var IBackendProvider&MockObject $provider2Mock */
 		$provider2Mock = $this->createMock(IBackendProvider::class);
 		$provider2Mock->expects($this->once())
 			->method('getBackends')
@@ -155,7 +151,7 @@ class BackendServiceTest extends \Test\TestCase {
 			->with('files_external', 'allow_user_mounting')
 			->willReturn(true);
 
-		$service = new BackendService($this->appConfig);
+		$service = new BackendService($this->appConfig, $this->logger);
 
 		$backendAllowed = $this->getBackendMock('\User\Mount\Allowed');
 		$backendAllowed->expects($this->never())
@@ -179,15 +175,15 @@ class BackendServiceTest extends \Test\TestCase {
 	}
 
 	public function testGetAvailableBackends(): void {
-		$service = new BackendService($this->appConfig);
+		$service = new BackendService($this->appConfig, $this->logger);
 
 		$backendAvailable = $this->getBackendMock('\Backend\Available');
 		$backendAvailable->expects($this->once())
-			->method('checkDependencies')
+			->method('checkRequiredDependencies')
 			->willReturn([]);
 		$backendNotAvailable = $this->getBackendMock('\Backend\NotAvailable');
 		$backendNotAvailable->expects($this->once())
-			->method('checkDependencies')
+			->method('checkRequiredDependencies')
 			->willReturn([
 				$this->getMockBuilder('\OCA\Files_External\Lib\MissingDependency')
 					->disableOriginalConstructor()
@@ -202,7 +198,7 @@ class BackendServiceTest extends \Test\TestCase {
 		$this->assertArrayNotHasKey('identifier:\Backend\NotAvailable', $availableBackends);
 	}
 
-	public function invalidConfigPlaceholderProvider() {
+	public static function invalidConfigPlaceholderProvider(): array {
 		return [
 			[['@user']],
 			[['$user']],
@@ -216,13 +212,11 @@ class BackendServiceTest extends \Test\TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider invalidConfigPlaceholderProvider
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider(methodName: 'invalidConfigPlaceholderProvider')]
 	public function testRegisterConfigHandlerInvalid(array $placeholders): void {
 		$this->expectException(\RuntimeException::class);
 
-		$service = new BackendService($this->appConfig);
+		$service = new BackendService($this->appConfig, $this->logger);
 		$mock = $this->createMock(IConfigHandler::class);
 		$cb = function () use ($mock) {
 			return $mock;
@@ -233,7 +227,7 @@ class BackendServiceTest extends \Test\TestCase {
 	}
 
 	public function testConfigHandlers(): void {
-		$service = new BackendService($this->appConfig);
+		$service = new BackendService($this->appConfig, $this->logger);
 		$mock = $this->createMock(IConfigHandler::class);
 		$mock->expects($this->exactly(3))
 			->method('handle');

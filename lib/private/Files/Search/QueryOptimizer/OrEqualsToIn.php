@@ -4,6 +4,7 @@
  * SPDX-FileCopyrightText: 2023 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OC\Files\Search\QueryOptimizer;
 
 use OC\Files\Search\SearchBinaryOperator;
@@ -16,10 +17,11 @@ use OCP\Files\Search\ISearchOperator;
  * transform (field == A OR field == B ...) into field IN (A, B, ...)
  */
 class OrEqualsToIn extends ReplacingOptimizerStep {
+	#[\Override]
 	public function processOperator(ISearchOperator &$operator): bool {
 		if (
-			$operator instanceof ISearchBinaryOperator &&
-			$operator->getType() === ISearchBinaryOperator::OPERATOR_OR
+			$operator instanceof ISearchBinaryOperator
+			&& $operator->getType() === ISearchBinaryOperator::OPERATOR_OR
 		) {
 			$groups = $this->groupEqualsComparisonsByField($operator->getArguments());
 			$newParts = array_map(function (array $group) {

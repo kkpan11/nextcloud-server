@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { generateOcsUrl, generateUrl } from '@nextcloud/router'
-import axios from '@nextcloud/axios'
 import { getCurrentUser } from '@nextcloud/auth'
+import axios from '@nextcloud/axios'
+import { generateOcsUrl, generateUrl } from '@nextcloud/router'
+import logger from '../logger.js'
 
 /**
  * Create a cancel token
@@ -32,7 +33,7 @@ export async function getProviders() {
 			return data.ocs.data
 		}
 	} catch (error) {
-		console.error(error)
+		logger.error(error)
 	}
 	return []
 }
@@ -42,13 +43,13 @@ export async function getProviders() {
  *
  * @param {object} options destructuring object
  * @param {string} options.type the type to search
- * @param {string} options.query the search
- * @param {number|string|undefined} options.cursor the offset for paginated searches
- * @param {string} options.since the search
- * @param {string} options.until the search
- * @param {string} options.limit the search
- * @param {string} options.person the search
- * @param {object} options.extraQueries additional queries to filter search results
+ * @param {string} options.query the search term
+ * @param {number|string|null} [options.cursor] the offset for paginated searches
+ * @param {string} [options.since] start of the date-range filter
+ * @param {string} [options.until] end of the date-range filter
+ * @param {number} [options.limit] maximum number of results
+ * @param {string} [options.person] filter results by person
+ * @param {object} [options.extraQueries] additional queries to filter search results
  * @return {object} {request: Promise, cancel: Promise}
  */
 export function search({ type, query, cursor, since, until, limit, person, extraQueries = {} }) {
@@ -99,10 +100,10 @@ export async function getContacts({ searchTerm }) {
 			id: authenticatedUser.uid,
 			fullName: authenticatedUser.displayName,
 			emailAddresses: [],
-		  }
+		}
 		contacts.unshift(authenticatedUser)
 		return contacts
-	  }
+	}
 
 	return contacts
 }

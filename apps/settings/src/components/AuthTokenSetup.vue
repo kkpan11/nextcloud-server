@@ -4,20 +4,22 @@
 -->
 
 <template>
-	<form id="generate-app-token-section"
-		class="row spacing"
+	<form
+		id="generate-app-token-section"
 		@submit.prevent="submit">
 		<!-- Port to TextField component when available -->
-		<NcTextField :value.sync="deviceName"
+		<NcTextField
+			v-model="deviceName"
 			type="text"
 			:maxlength="120"
 			:disabled="loading"
 			class="app-name-text-field"
 			:label="t('settings', 'App name')"
 			:placeholder="t('settings', 'App name')" />
-		<NcButton type="primary"
+		<NcButton
+			variant="primary"
 			:disabled="loading || deviceName.length === 0"
-			native-type="submit">
+			type="submit">
 			{{ t('settings', 'Create new app password') }}
 		</NcButton>
 
@@ -26,16 +28,16 @@
 </template>
 
 <script lang="ts">
+import type { ITokenResponse } from '../store/authtoken.ts'
+
 import { showError } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
 import { defineComponent } from 'vue'
-import { useAuthTokenStore, type ITokenResponse } from '../store/authtoken'
-
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
-
 import AuthTokenSetupDialog from './AuthTokenSetupDialog.vue'
-import logger from '../logger'
+import logger from '../logger.ts'
+import { useAuthTokenStore } from '../store/authtoken.ts'
 
 export default defineComponent({
 	name: 'AuthTokenSetup',
@@ -44,17 +46,20 @@ export default defineComponent({
 		NcTextField,
 		AuthTokenSetupDialog,
 	},
+
 	setup() {
 		const authTokenStore = useAuthTokenStore()
 		return { authTokenStore }
 	},
+
 	data() {
 		return {
 			deviceName: '',
 			loading: false,
-			newToken: null as ITokenResponse|null,
+			newToken: null as ITokenResponse | null,
 		}
 	},
+
 	methods: {
 		t,
 		reset() {
@@ -62,6 +67,7 @@ export default defineComponent({
 			this.deviceName = ''
 			this.newToken = null
 		},
+
 		async submit() {
 			try {
 				this.loading = true
@@ -79,19 +85,11 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
-	.app-name-text-field {
-		height: 44px !important;
-		padding-inline-start: 12px;
-		margin-inline-end: 12px;
-		width: 200px;
-	}
-
-	.row {
+	#generate-app-token-section {
 		display: flex;
-		align-items: center;
-	}
-
-	.spacing {
+		flex-direction: column;
+		gap: 1rem;
+		max-width: 400px;
 		padding-top: 16px;
 	}
 </style>

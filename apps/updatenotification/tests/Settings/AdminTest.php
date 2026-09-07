@@ -7,6 +7,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2018 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OCA\UpdateNotification\Tests\Settings;
 
 use OCA\UpdateNotification\AppInfo\Application;
@@ -29,9 +30,6 @@ use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 class AdminTest extends TestCase {
-
-	private Admin $admin;
-
 	private IFactory&MockObject $l10nFactory;
 	private IConfig&MockObject $config;
 	private IAppConfig&MockObject $appConfig;
@@ -43,6 +41,7 @@ class AdminTest extends TestCase {
 	private LoggerInterface&MockObject $logger;
 	private IInitialState&MockObject $initialState;
 	private ServerVersion&MockObject $serverVersion;
+	private Admin $admin;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -370,7 +369,6 @@ class AdminTest extends TestCase {
 		$this->assertEquals($expected, $this->admin->getForm());
 	}
 
-
 	public function testGetSection(): void {
 		$this->config
 			->expects(self::atLeastOnce())
@@ -395,7 +393,7 @@ class AdminTest extends TestCase {
 		$this->assertSame(11, $this->admin->getPriority());
 	}
 
-	public function changesProvider() {
+	public static function changesProvider(): array {
 		return [
 			[ #0, all info, en
 				[
@@ -450,9 +448,7 @@ class AdminTest extends TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider changesProvider
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider(methodName: 'changesProvider')]
 	public function testFilterChanges($changes, $userLang, $expectation): void {
 		$iterator = $this->createMock(ILanguageIterator::class);
 		$iterator->expects($this->any())

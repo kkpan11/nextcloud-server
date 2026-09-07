@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * SPDX-FileCopyrightText: 2018 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
@@ -56,7 +59,7 @@ class AccountPropertyTest extends TestCase {
 		$this->assertEquals(IAccountManager::SCOPE_LOCAL, $actualReturn->getScope());
 	}
 
-	public function scopesProvider() {
+	public static function scopesProvider(): array {
 		return [
 			// current values
 			[IAccountManager::SCOPE_PRIVATE, IAccountManager::SCOPE_PRIVATE],
@@ -69,9 +72,7 @@ class AccountPropertyTest extends TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider scopesProvider
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('scopesProvider')]
 	public function testSetScopeMapping(string $storedScope, ?string $returnedScope): void {
 		if ($returnedScope === null) {
 			$this->expectException(\InvalidArgumentException::class);

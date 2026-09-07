@@ -13,10 +13,11 @@ use OC\Authentication\Login\ClearLostPasswordTokensCommand;
 use OCP\IConfig;
 use PHPUnit\Framework\MockObject\MockObject;
 
-class ClearLostPasswordTokensCommandTest extends ALoginCommandTest {
+class ClearLostPasswordTokensCommandTest extends ALoginTestCommand {
 	/** @var IConfig|MockObject */
 	private $config;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 

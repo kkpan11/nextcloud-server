@@ -5,6 +5,7 @@
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OC\Core\Controller;
 
 use Exception;
@@ -64,7 +65,7 @@ class LostController extends Controller {
 		private Defaults $defaults,
 		private IL10N $l10n,
 		private IConfig $config,
-		protected string $from,
+		protected string $defaultMailAddress,
 		private IManager $encryptionManager,
 		private IMailer $mailer,
 		private LoggerInterface $logger,
@@ -89,24 +90,19 @@ class LostController extends Controller {
 		try {
 			$this->checkPasswordResetToken($token, $userId);
 		} catch (Exception $e) {
-			if ($this->config->getSystemValue('lost_password_link', '') !== 'disabled'
-				|| ($e instanceof InvalidTokenException
-					&& !in_array($e->getCode(), [InvalidTokenException::TOKEN_NOT_FOUND, InvalidTokenException::USER_UNKNOWN]))
-			) {
-				$response = new TemplateResponse(
-					'core', 'error', [
-						'errors' => [['error' => $e->getMessage()]]
-					],
-					TemplateResponse::RENDER_AS_GUEST
-				);
-				$response->throttle();
-				return $response;
+			if ($this->config->getSystemValue('lost_password_link', '') === 'disabled') {
+				$message = $this->l10n->t('Password reset is disabled');
+			} else {
+				$message = $e->getMessage();
 			}
-			return new TemplateResponse('core', 'error', [
-				'errors' => [['error' => $this->l10n->t('Password reset is disabled')]]
-			],
+			$response = new TemplateResponse(
+				'core', 'error', [
+					'errors' => [['error' => $message]]
+				],
 				TemplateResponse::RENDER_AS_GUEST
 			);
+			$response->throttle();
+			return $response;
 		}
 		$this->initialState->provideInitialState('resetPasswordUser', $userId);
 		$this->initialState->provideInitialState('resetPasswordTarget',
@@ -129,6 +125,11 @@ class LostController extends Controller {
 			$user = $this->userManager->get($userId);
 			$this->verificationToken->check($token, $user, 'lostpassword', $user ? $user->getEMailAddress() : '', true);
 		} catch (InvalidTokenException $e) {
+			$this->logger->warning('Password reset token check failed', [
+				'user' => $userId,
+				'code' => $e->getCode(),
+				'exception' => $e,
+			]);
 			$error = $e->getCode() === InvalidTokenException::TOKEN_EXPIRED
 				? $this->l10n->t('Could not reset password because the token is expired')
 				: $this->l10n->t('Could not reset password because the token is invalid');
@@ -281,7 +282,7 @@ class LostController extends Controller {
 		try {
 			$message = $this->mailer->createMessage();
 			$message->setTo([$email => $user->getDisplayName()]);
-			$message->setFrom([$this->from => $this->defaults->getName()]);
+			$message->setFrom([$this->defaultMailAddress => $this->defaults->getName()]);
 			$message->useTemplate($emailTemplate);
 			$this->mailer->send($message);
 		} catch (Exception $e) {

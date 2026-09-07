@@ -31,6 +31,7 @@ class UpdateTest extends TestCase {
 	private File&MockObject $fileHelper;
 	private LoggerInterface&MockObject $logger;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -77,13 +78,13 @@ class UpdateTest extends TestCase {
 	}
 
 	/**
-	 * @dataProvider dataTestUpdate
 	 *
 	 * @param string $path
 	 * @param boolean $isDir
 	 * @param array $allFiles
 	 * @param integer $numberOfFiles
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataTestUpdate')]
 	public function testUpdate($path, $isDir, $allFiles, $numberOfFiles): void {
 		$updateMock = $this->getUpdateMock(['getOwnerPath']);
 		$updateMock->expects($this->once())->method('getOwnerPath')
@@ -113,12 +114,7 @@ class UpdateTest extends TestCase {
 		$updateMock->update($node);
 	}
 
-	/**
-	 * data provider for testUpdate()
-	 *
-	 * @return array
-	 */
-	public function dataTestUpdate() {
+	public static function dataTestUpdate(): array {
 		return [
 			['/user/files/foo', true, ['/user/files/foo/file1.txt', '/user/files/foo/file1.txt'], 2],
 			['/user/files/test.txt', false, [], 1],
@@ -126,11 +122,11 @@ class UpdateTest extends TestCase {
 	}
 
 	/**
-	 * @dataProvider dataTestPostRename
 	 *
 	 * @param string $source
 	 * @param string $target
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataTestPostRename')]
 	public function testPostRename($source, $target): void {
 		$updateMock = $this->getUpdateMock(['update','getOwnerPath']);
 
@@ -152,12 +148,7 @@ class UpdateTest extends TestCase {
 		$updateMock->postRename($sourceNode, $targetNode);
 	}
 
-	/**
-	 * test data for testPostRename()
-	 *
-	 * @return array
-	 */
-	public function dataTestPostRename() {
+	public static function dataTestPostRename(): array {
 		return [
 			['/test.txt', '/testNew.txt'],
 			['/folder/test.txt', '/testNew.txt'],
@@ -193,6 +184,8 @@ class UpdateTest extends TestCase {
 					$this->logger,
 					$this->uid
 				]
-			)->setMethods($methods)->getMock();
+			)
+			->onlyMethods($methods)
+			->getMock();
 	}
 }

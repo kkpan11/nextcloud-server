@@ -5,6 +5,7 @@
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OC\Core\Command\User;
 
 use OC\Core\Command\Base;
@@ -25,6 +26,7 @@ class Setting extends Base {
 		parent::__construct();
 	}
 
+	#[\Override]
 	protected function configure() {
 		parent::configure();
 		$this
@@ -131,6 +133,7 @@ class Setting extends Base {
 		}
 	}
 
+	#[\Override]
 	protected function execute(InputInterface $input, OutputInterface $output): int {
 		try {
 			$this->checkInput($input);
@@ -155,7 +158,8 @@ class Setting extends Base {
 					$user = $this->userManager->get($uid);
 					if ($user instanceof IUser) {
 						if ($key === 'email') {
-							$user->setEMailAddress($input->getArgument('value'));
+							$email = $input->getArgument('value');
+							$user->setSystemEMailAddress(mb_strtolower(trim($email)));
 						} elseif ($key === 'display_name') {
 							if (!$user->setDisplayName($input->getArgument('value'))) {
 								if ($user->getDisplayName() === $input->getArgument('value')) {
@@ -243,6 +247,7 @@ class Setting extends Base {
 	 * @param CompletionContext $context
 	 * @return string[]
 	 */
+	#[\Override]
 	public function completeArgumentValues($argumentName, CompletionContext $context) {
 		if ($argumentName === 'uid') {
 			return array_map(static fn (IUser $user) => $user->getUID(), $this->userManager->search($context->getCurrentWord()));

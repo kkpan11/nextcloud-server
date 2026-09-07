@@ -46,6 +46,7 @@ class ManagerTest extends TestCase {
 	/** @var RegistrationContext|MockObject */
 	protected $registrationContext;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -153,7 +154,7 @@ class ManagerTest extends TestCase {
 				$this->coordinator,
 				$this->richTextFormatter,
 			])
-			->setMethods(['getApps'])
+			->onlyMethods(['getApps'])
 			->getMock();
 
 		$manager->expects($this->once())
@@ -162,7 +163,6 @@ class ManagerTest extends TestCase {
 
 		$manager->notify($notification);
 	}
-
 
 	public function testNotifyInvalid(): void {
 		$this->expectException(\InvalidArgumentException::class);
@@ -185,7 +185,7 @@ class ManagerTest extends TestCase {
 				$this->coordinator,
 				$this->richTextFormatter,
 			])
-			->setMethods(['getApps'])
+			->onlyMethods(['getApps'])
 			->getMock();
 
 		$manager->expects($this->never())
@@ -210,7 +210,7 @@ class ManagerTest extends TestCase {
 				$this->coordinator,
 				$this->richTextFormatter,
 			])
-			->setMethods(['getApps'])
+			->onlyMethods(['getApps'])
 			->getMock();
 
 		$manager->expects($this->once())
@@ -236,7 +236,7 @@ class ManagerTest extends TestCase {
 				$this->coordinator,
 				$this->richTextFormatter,
 			])
-			->setMethods(['getApps'])
+			->onlyMethods(['getApps'])
 			->getMock();
 
 		$manager->expects($this->once())
@@ -246,7 +246,7 @@ class ManagerTest extends TestCase {
 		$manager->getCount($notification);
 	}
 
-	public function dataIsFairUseOfFreePushService(): array {
+	public static function dataIsFairUseOfFreePushService(): array {
 		return [
 			[true, 999, true],
 			[true, 1000, true],
@@ -256,11 +256,11 @@ class ManagerTest extends TestCase {
 	}
 
 	/**
-	 * @dataProvider dataIsFairUseOfFreePushService
 	 * @param bool $hasValidSubscription
 	 * @param int $userCount
 	 * @param bool $isFair
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataIsFairUseOfFreePushService')]
 	public function testIsFairUseOfFreePushService(bool $hasValidSubscription, int $userCount, bool $isFair): void {
 		$this->subscriptionRegistry->method('delegateHasValidSubscription')
 			->willReturn($hasValidSubscription);

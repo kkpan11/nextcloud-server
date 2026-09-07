@@ -1,14 +1,16 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace Test\Repair\Owncloud;
 
 use OC\Repair\Owncloud\CleanPreviews;
 use OC\Repair\Owncloud\CleanPreviewsBackgroundJob;
 use OCP\BackgroundJob\IJobList;
-use OCP\IConfig;
+use OCP\IAppConfig;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\Migration\IOutput;
@@ -16,25 +18,23 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
 class CleanPreviewsTest extends TestCase {
-
 	private IJobList&MockObject $jobList;
 	private IUserManager&MockObject $userManager;
-	private IConfig&MockObject $config;
+	private IAppConfig&MockObject $appConfig;
+	private CleanPreviews $repair;
 
-	/** @var CleanPreviews */
-	private $repair;
-
+	#[\Override]
 	public function setUp(): void {
 		parent::setUp();
 
 		$this->jobList = $this->createMock(IJobList::class);
 		$this->userManager = $this->createMock(IUserManager::class);
-		$this->config = $this->createMock(IConfig::class);
+		$this->appConfig = $this->createMock(IAppConfig::class);
 
 		$this->repair = new CleanPreviews(
 			$this->jobList,
 			$this->userManager,
-			$this->config
+			$this->appConfig
 		);
 	}
 
@@ -52,31 +52,30 @@ class CleanPreviewsTest extends TestCase {
 
 		$this->userManager->expects($this->once())
 			->method('callForSeenUsers')
-			->will($this->returnCallback(function (\Closure $function) use (&$user1, $user2) {
+			->willReturnCallback(function (\Closure $function) use (&$user1, $user2): void {
 				$function($user1);
 				$function($user2);
-			}));
+			});
 
 		$jobListCalls = [];
 		$this->jobList->expects($this->exactly(2))
 			->method('add')
-			->willReturnCallback(function () use (&$jobListCalls) {
+			->willReturnCallback(function () use (&$jobListCalls): void {
 				$jobListCalls[] = func_get_args();
 			});
 
-		$this->config->expects($this->once())
-			->method('getAppValue')
+		$this->appConfig->expects($this->once())
+			->method('getValueBool')
 			->with(
 				$this->equalTo('core'),
 				$this->equalTo('previewsCleanedUp'),
-				$this->equalTo(false)
 			)->willReturn(false);
-		$this->config->expects($this->once())
-			->method('setAppValue')
+		$this->appConfig->expects($this->once())
+			->method('setValueBool')
 			->with(
 				$this->equalTo('core'),
 				$this->equalTo('previewsCleanedUp'),
-				$this->equalTo(1)
+				$this->equalTo(true)
 			);
 
 		$this->repair->run($this->createMock(IOutput::class));
@@ -86,7 +85,6 @@ class CleanPreviewsTest extends TestCase {
 		], $jobListCalls);
 	}
 
-
 	public function testRunAlreadyDone(): void {
 		$this->userManager->expects($this->never())
 			->method($this->anything());
@@ -94,15 +92,14 @@ class CleanPreviewsTest extends TestCase {
 		$this->jobList->expects($this->never())
 			->method($this->anything());
 
-		$this->config->expects($this->once())
-			->method('getAppValue')
+		$this->appConfig->expects($this->once())
+			->method('getValueBool')
 			->with(
 				$this->equalTo('core'),
 				$this->equalTo('previewsCleanedUp'),
-				$this->equalTo(false)
-			)->willReturn('1');
-		$this->config->expects($this->never())
-			->method('setAppValue');
+			)->willReturn(true);
+		$this->appConfig->expects($this->never())
+			->method('setValueBool');
 
 		$this->repair->run($this->createMock(IOutput::class));
 	}

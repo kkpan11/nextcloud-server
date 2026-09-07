@@ -1,9 +1,11 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OC\Hooks;
 
 /**
@@ -40,7 +42,7 @@ trait EmitterTrait {
 	public function removeListener($scope = null, $method = null, ?callable $callback = null) {
 		$names = [];
 		$allNames = array_keys($this->listeners);
-		if ($scope and $method) {
+		if ($scope && $method) {
 			$name = $scope . '::' . $method;
 			if (isset($this->listeners[$name])) {
 				$names[] = $name;

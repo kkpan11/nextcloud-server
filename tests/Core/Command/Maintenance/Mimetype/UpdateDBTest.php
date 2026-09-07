@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
@@ -30,6 +31,7 @@ class UpdateDBTest extends TestCase {
 	/** @var \Symfony\Component\Console\Command\Command */
 	protected $command;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -65,7 +67,7 @@ class UpdateDBTest extends TestCase {
 		];
 		$this->consoleOutput->expects($this->exactly(2))
 			->method('writeln')
-			->willReturnCallback(function ($message) use (&$calls) {
+			->willReturnCallback(function ($message) use (&$calls): void {
 				$expected = array_shift($calls);
 				$this->assertStringContainsString($expected, $message);
 			});
@@ -110,7 +112,7 @@ class UpdateDBTest extends TestCase {
 		];
 		$this->consoleOutput->expects($this->exactly(4))
 			->method('writeln')
-			->willReturnCallback(function ($message) use (&$calls) {
+			->willReturnCallback(function ($message) use (&$calls): void {
 				$expected = array_shift($calls);
 				$this->assertStringContainsString($expected, $message);
 			});
@@ -163,7 +165,7 @@ class UpdateDBTest extends TestCase {
 		];
 		$this->consoleOutput->expects($this->exactly(3))
 			->method('writeln')
-			->willReturnCallback(function ($message) use (&$calls) {
+			->willReturnCallback(function ($message) use (&$calls): void {
 				$expected = array_shift($calls);
 				$this->assertStringContainsString($expected, $message);
 			});

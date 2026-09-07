@@ -6,6 +6,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2019 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OC\Core\Controller;
 
 use OC\Core\Db\LoginFlowV2;
@@ -18,23 +19,26 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\NoSameSiteCookieRequired;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
+use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\Attribute\UseSession;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
+use OCP\AppFramework\Services\IInitialState;
 use OCP\Authentication\Exceptions\InvalidTokenException;
 use OCP\Defaults;
 use OCP\IL10N;
 use OCP\IRequest;
 use OCP\ISession;
 use OCP\IURLGenerator;
-use OCP\IUser;
 use OCP\IUserSession;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
+use OCP\Util;
 
 /**
  * @psalm-import-type CoreLoginFlowV2Credentials from ResponseDefinitions
@@ -43,8 +47,6 @@ use OCP\Server;
 class ClientFlowLoginV2Controller extends Controller {
 	public const TOKEN_NAME = 'client.flow.v2.login.token';
 	public const STATE_NAME = 'client.flow.v2.state.token';
-	// Denotes that the session was created for the login flow and should therefore be ephemeral.
-	public const EPHEMERAL_NAME = 'client.flow.v2.state.ephemeral';
 
 	public function __construct(
 		string $appName,
@@ -57,6 +59,7 @@ class ClientFlowLoginV2Controller extends Controller {
 		private Defaults $defaults,
 		private ?string $userId,
 		private IL10N $l10n,
+		private IInitialState $initialState,
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -121,29 +124,29 @@ class ClientFlowLoginV2Controller extends Controller {
 		);
 		$this->session->set(self::STATE_NAME, $stateToken);
 
+		$this->initialState->provideInitialState('loginFlowState', 'auth');
+		$this->initialState->provideInitialState('loginFlowAuth', [
+			'client' => $flow->getClientName(),
+			'instanceName' => $this->defaults->getName(),
+			'stateToken' => $stateToken,
+			'loginRedirectUrl' => $this->urlGenerator->linkToRouteAbsolute('core.ClientFlowLoginV2.grantPage', ['stateToken' => $stateToken, 'user' => $user, 'direct' => $direct]),
+			'appTokenUrl' => $this->urlGenerator->linkToRouteAbsolute('core.ClientFlowLoginV2.apptokenRedirect'),
+		]);
+
+		Util::addScript('core', 'login_flow');
 		return new StandaloneTemplateResponse(
 			$this->appName,
-			'loginflowv2/authpicker',
-			[
-				'client' => $flow->getClientName(),
-				'instanceName' => $this->defaults->getName(),
-				'urlGenerator' => $this->urlGenerator,
-				'stateToken' => $stateToken,
-				'user' => $user,
-				'direct' => $direct,
-			],
-			'guest'
+			'loginflow',
+			renderAs: 'guest'
 		);
 	}
 
-	/**
-	 * @NoSameSiteCookieRequired
-	 */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	#[OpenAPI(scope: OpenAPI::SCOPE_IGNORE)]
 	#[UseSession]
 	#[FrontpageRoute(verb: 'GET', url: '/login/v2/grant')]
+	#[NoSameSiteCookieRequired]
 	public function grantPage(?string $stateToken, int $direct = 0): StandaloneTemplateResponse {
 		if ($stateToken === null) {
 			return $this->stateTokenMissingResponse();
@@ -160,22 +163,25 @@ class ClientFlowLoginV2Controller extends Controller {
 			return $this->loginTokenForbiddenClientResponse();
 		}
 
-		/** @var IUser $user */
 		$user = $this->userSession->getUser();
+		\assert($user !== null);
 
+		$this->initialState->provideInitialState('loginFlowState', 'grant');
+		$this->initialState->provideInitialState('loginFlowGrant', [
+			'actionUrl' => $this->urlGenerator->linkToRouteAbsolute('core.ClientFlowLoginV2.generateAppPassword'),
+			'userId' => $user->getUID(),
+			'userDisplayName' => $user->getDisplayName(),
+			'client' => $flow->getClientName(),
+			'instanceName' => $this->defaults->getName(),
+			'stateToken' => $stateToken,
+			'direct' => $direct === 1,
+		]);
+
+		Util::addScript('core', 'login_flow');
 		return new StandaloneTemplateResponse(
 			$this->appName,
-			'loginflowv2/grant',
-			[
-				'userId' => $user->getUID(),
-				'userDisplayName' => $user->getDisplayName(),
-				'client' => $flow->getClientName(),
-				'instanceName' => $this->defaults->getName(),
-				'urlGenerator' => $this->urlGenerator,
-				'stateToken' => $stateToken,
-				'direct' => $direct,
-			],
-			'guest'
+			'loginflow',
+			renderAs: 'guest'
 		);
 	}
 
@@ -228,6 +234,7 @@ class ClientFlowLoginV2Controller extends Controller {
 
 	#[NoAdminRequired]
 	#[UseSession]
+	#[PasswordConfirmationRequired(strict: false)]
 	#[FrontpageRoute(verb: 'POST', url: '/login/v2/grant')]
 	public function generateAppPassword(?string $stateToken): Response {
 		if ($stateToken === null) {
@@ -258,11 +265,12 @@ class ClientFlowLoginV2Controller extends Controller {
 
 	private function handleFlowDone(bool $result): StandaloneTemplateResponse {
 		if ($result) {
+			Util::addScript('core', 'login_flow');
+			$this->initialState->provideInitialState('loginFlowState', 'done');
 			return new StandaloneTemplateResponse(
 				$this->appName,
-				'loginflowv2/done',
-				[],
-				'guest'
+				'loginflow',
+				renderAs: 'guest'
 			);
 		}
 
@@ -291,7 +299,7 @@ class ClientFlowLoginV2Controller extends Controller {
 	#[OpenAPI(scope: OpenAPI::SCOPE_DEFAULT)]
 	public function init(): JSONResponse {
 		// Get client user agent
-		$userAgent = $this->request->getHeader('USER_AGENT');
+		$userAgent = $this->request->getHeader('user-agent');
 
 		$tokens = $this->loginFlowV2Service->createTokens($userAgent);
 

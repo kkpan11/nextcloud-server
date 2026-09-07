@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
@@ -66,9 +69,14 @@ return [
 			'verb' => 'DELETE',
 		],
 		[
-			'name' => 'Accept#accept',
+			'name' => 'Accept#showAccept',
 			'url' => '/accept/{shareId}',
 			'verb' => 'GET',
+		],
+		[
+			'name' => 'Accept#accept',
+			'url' => '/accept/{shareId}',
+			'verb' => 'POST',
 		],
 	],
 	'ocs' => [

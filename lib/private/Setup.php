@@ -7,27 +7,43 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OC;
 
 use bantu\IniGetWrapper\IniGetWrapper;
 use Exception;
 use InvalidArgumentException;
+use OC\AppFramework\Bootstrap\Coordinator;
 use OC\Authentication\Token\PublicKeyTokenProvider;
 use OC\Authentication\Token\TokenCleanupJob;
+use OC\Core\BackgroundJobs\CleanupBackgroundJobsJob;
+use OC\Core\BackgroundJobs\ExpirePreviewsJob;
 use OC\Core\BackgroundJobs\GenerateMetadataJob;
+use OC\Core\BackgroundJobs\PreviewMigrationJob;
 use OC\Log\Rotate;
 use OC\Preview\BackgroundCleanupJob;
+use OC\Setup\AbstractDatabase;
+use OC\Setup\MySQL;
+use OC\Setup\OCI;
+use OC\Setup\PostgreSQL;
+use OC\Setup\Sqlite;
 use OC\TextProcessing\RemoveOldTasksBackgroundJob;
 use OC\User\BackgroundJobs\CleanupDeletedUsers;
+use OC\User\BackgroundJobs\CleanupLoginTokens;
+use OC\User\Session;
+use OCP\AppFramework\QueryException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
 use OCP\Defaults;
+use OCP\EventDispatcher\IEventDispatcher;
+use OCP\HintException;
 use OCP\Http\Client\IClientService;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\IL10N;
+use OCP\Install\Events\InstallationCompletedEvent;
 use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUserManager;
@@ -37,9 +53,13 @@ use OCP\Migration\IOutput;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
 use OCP\ServerVersion;
+use OCP\Util;
 use Psr\Log\LoggerInterface;
 
 class Setup {
+	public const MIN_PASSWORD_SALT_LENGTH = 32;
+	public const MIN_SECRET_LENGTH = 48;
+
 	protected IL10N $l10n;
 
 	public function __construct(
@@ -50,16 +70,17 @@ class Setup {
 		protected LoggerInterface $logger,
 		protected ISecureRandom $random,
 		protected Installer $installer,
+		protected IEventDispatcher $eventDispatcher,
 	) {
 		$this->l10n = $l10nFactory->get('lib');
 	}
 
-	protected static array $dbSetupClasses = [
-		'mysql' => \OC\Setup\MySQL::class,
-		'pgsql' => \OC\Setup\PostgreSQL::class,
-		'oci' => \OC\Setup\OCI::class,
-		'sqlite' => \OC\Setup\Sqlite::class,
-		'sqlite3' => \OC\Setup\Sqlite::class,
+	private const array DB_SETUP_CLASSES = [
+		'mysql' => MySQL::class,
+		'pgsql' => PostgreSQL::class,
+		'oci' => OCI::class,
+		'sqlite' => Sqlite::class,
+		'sqlite3' => Sqlite::class,
 	];
 
 	/**
@@ -174,7 +195,7 @@ class Setup {
 
 			try {
 				$htAccessWorking = $this->isHtaccessWorking($dataDir);
-			} catch (\OCP\HintException $e) {
+			} catch (HintException $e) {
 				$errors[] = [
 					'error' => $e->getMessage(),
 					'exception' => $e,
@@ -184,11 +205,11 @@ class Setup {
 			}
 		}
 
-		if (\OC_Util::runningOnMac()) {
+		// Check if running directly on macOS (note: Linux containers on macOS will not trigger this)
+		if (!getenv('CI') && PHP_OS_FAMILY === 'Darwin') {
 			$errors[] = [
 				'error' => $this->l10n->t(
-					'Mac OS X is not supported and %s will not work properly on this platform. ' .
-					'Use it at your own risk!',
+					'macOS is not supported and %s will not work properly on this platform.',
 					[$this->defaults->getProductName()]
 				),
 				'hint' => $this->l10n->t('For the best results, please consider using a GNU/Linux server instead.'),
@@ -198,8 +219,8 @@ class Setup {
 		if ($this->iniWrapper->getString('open_basedir') !== '' && PHP_INT_SIZE === 4) {
 			$errors[] = [
 				'error' => $this->l10n->t(
-					'It seems that this %s instance is running on a 32-bit PHP environment and the open_basedir has been configured in php.ini. ' .
-					'This will lead to problems with files over 4 GB and is highly discouraged.',
+					'It seems that this %s instance is running on a 32-bit PHP environment and the open_basedir has been configured in php.ini. '
+					. 'This will lead to problems with files over 4 GB and is highly discouraged.',
 					[$this->defaults->getProductName()]
 				),
 				'hint' => $this->l10n->t('Please remove the open_basedir setting within your php.ini or switch to 64-bit PHP.'),
@@ -233,7 +254,7 @@ class Setup {
 
 		$fp = @fopen($testFile, 'w');
 		if (!$fp) {
-			throw new \OCP\HintException('Can\'t create test file to check for working .htaccess file.',
+			throw new HintException('Can\'t create test file to check for working .htaccess file.',
 				'Make sure it is possible for the web server to write to ' . $testFile);
 		}
 		fwrite($fp, $testContent);
@@ -245,12 +266,10 @@ class Setup {
 	/**
 	 * Check if the .htaccess file is working
 	 *
-	 * @param \OCP\IConfig $config
-	 * @return bool
 	 * @throws Exception
-	 * @throws \OCP\HintException If the test file can't get written.
+	 * @throws HintException If the test file can't get written.
 	 */
-	public function isHtaccessWorking(string $dataDir) {
+	public function isHtaccessWorking(string $dataDir): bool {
 		$config = Server::get(IConfig::class);
 
 		if (\OC::$CLI || !$config->getSystemValueBool('check_for_working_htaccess', true)) {
@@ -304,26 +323,28 @@ class Setup {
 		$error = [];
 		$dbType = $options['dbtype'];
 
-		if (empty($options['adminlogin'])) {
-			$error[] = $l->t('Set an admin Login.');
-		}
-		if (empty($options['adminpass'])) {
-			$error[] = $l->t('Set an admin password.');
+		$disableAdminUser = (bool)($options['admindisable'] ?? false);
+
+		if (!$disableAdminUser) {
+			if (empty($options['adminlogin'])) {
+				$error[] = $l->t('Set an admin Login.');
+			}
+			if (empty($options['adminpass'])) {
+				$error[] = $l->t('Set an admin password.');
+			}
 		}
 		if (empty($options['directory'])) {
 			$options['directory'] = \OC::$SERVERROOT . '/data';
 		}
 
-		if (!isset(self::$dbSetupClasses[$dbType])) {
+		if (!isset(self::DB_SETUP_CLASSES[$dbType])) {
 			$dbType = 'sqlite';
 		}
 
-		$username = htmlspecialchars_decode($options['adminlogin']);
-		$password = htmlspecialchars_decode($options['adminpass']);
 		$dataDir = htmlspecialchars_decode($options['directory']);
 
-		$class = self::$dbSetupClasses[$dbType];
-		/** @var \OC\Setup\AbstractDatabase $dbSetup */
+		$class = self::DB_SETUP_CLASSES[$dbType];
+		/** @var AbstractDatabase $dbSetup */
 		$dbSetup = new $class($l, $this->config, $this->logger, $this->random);
 		$error = array_merge($error, $dbSetup->validate($options));
 
@@ -351,10 +372,8 @@ class Setup {
 			$dbType = 'sqlite3';
 		}
 
-		//generate a random salt that is used to salt the local  passwords
-		$salt = $this->random->generate(30);
-		// generate a secret
-		$secret = $this->random->generate(48);
+		$salt = $options['passwordsalt'] ?: $this->random->generate(self::MIN_PASSWORD_SALT_LENGTH);
+		$secret = $options['secret'] ?: $this->random->generate(self::MIN_SECRET_LENGTH);
 
 		//write the config file
 		$newConfigValues = [
@@ -363,7 +382,7 @@ class Setup {
 			'trusted_domains' => $trustedDomains,
 			'datadirectory' => $dataDir,
 			'dbtype' => $dbType,
-			'version' => implode('.', \OCP\Util::getVersion()),
+			'version' => implode('.', Util::getVersion()),
 		];
 
 		if ($this->config->getValue('overwrite.cli.url', null) === null) {
@@ -372,11 +391,14 @@ class Setup {
 
 		$this->config->setValues($newConfigValues);
 
+		// Ensure instanceid is generated during the installation.
+		\OC_Util::getInstanceId();
+
 		$this->outputDebug($output, 'Configuring database');
 		$dbSetup->initialize($options);
 		try {
-			$dbSetup->setupDatabase($username);
-		} catch (\OC\DatabaseSetupException $e) {
+			$dbSetup->setupDatabase();
+		} catch (DatabaseSetupException $e) {
 			$error[] = [
 				'error' => $e->getMessage(),
 				'exception' => $e,
@@ -405,19 +427,22 @@ class Setup {
 			return $error;
 		}
 
-		$this->outputDebug($output, 'Create admin account');
-
-		// create the admin account and group
 		$user = null;
-		try {
-			$user = Server::get(IUserManager::class)->createUser($username, $password);
-			if (!$user) {
-				$error[] = "Account <$username> could not be created.";
+		if (!$disableAdminUser) {
+			$username = htmlspecialchars_decode($options['adminlogin']);
+			$password = htmlspecialchars_decode($options['adminpass']);
+			$this->outputDebug($output, 'Create admin account');
+
+			try {
+				$user = Server::get(IUserManager::class)->createUser($username, $password);
+				if (!$user) {
+					$error[] = "Account <$username> could not be created.";
+					return $error;
+				}
+			} catch (Exception $exception) {
+				$error[] = $exception->getMessage();
 				return $error;
 			}
-		} catch (Exception $exception) {
-			$error[] = $exception->getMessage();
-			return $error;
 		}
 
 		$config = Server::get(IConfig::class);
@@ -432,13 +457,14 @@ class Setup {
 		}
 
 		$group = Server::get(IGroupManager::class)->createGroup('admin');
-		if ($group instanceof IGroup) {
+		if ($user !== null && $group instanceof IGroup) {
 			$group->addUser($user);
 		}
 
 		// Install shipped apps and specified app bundles
 		$this->outputDebug($output, 'Install default apps');
-		Installer::installShippedApps(false, $output);
+		$installer = Server::get(Installer::class);
+		$installer->installShippedApps(false, $output);
 
 		// create empty file in data dir, so we can later find
 		// out that this is indeed a Nextcloud data directory
@@ -461,30 +487,39 @@ class Setup {
 			unlink(\OC::$configDir . '/CAN_INSTALL');
 		}
 
-		$bootstrapCoordinator = Server::get(\OC\AppFramework\Bootstrap\Coordinator::class);
+		$bootstrapCoordinator = Server::get(Coordinator::class);
 		$bootstrapCoordinator->runInitialRegistration();
 
-		// Create a session token for the newly created user
-		// The token provider requires a working db, so it's not injected on setup
-		/** @var \OC\User\Session $userSession */
-		$userSession = Server::get(IUserSession::class);
-		$provider = Server::get(PublicKeyTokenProvider::class);
-		$userSession->setTokenProvider($provider);
-		$userSession->login($username, $password);
-		$user = $userSession->getUser();
-		if (!$user) {
-			$error[] = 'No account found in session.';
-			return $error;
-		}
-		$userSession->createSessionToken($request, $user->getUID(), $username, $password);
+		if (!$disableAdminUser) {
+			// Create a session token for the newly created user
+			// The token provider requires a working db, so it's not injected on setup
+			/** @var Session $userSession */
+			$userSession = Server::get(IUserSession::class);
+			$provider = Server::get(PublicKeyTokenProvider::class);
+			$userSession->setTokenProvider($provider);
+			$userSession->login($username, $password);
+			$user = $userSession->getUser();
+			if (!$user) {
+				$error[] = 'No account found in session.';
+				return $error;
+			}
+			$userSession->createSessionToken($request, $user->getUID(), $username, $password);
 
-		$session = $userSession->getSession();
-		$session->set('last-password-confirm', Server::get(ITimeFactory::class)->getTime());
+			$session = $userSession->getSession();
+			$session->set('last-password-confirm', Server::get(ITimeFactory::class)->getTime());
 
-		// Set email for admin
-		if (!empty($options['adminemail'])) {
-			$user->setSystemEMailAddress($options['adminemail']);
+			// Set email for admin
+			if (!empty($options['adminemail'])) {
+				$user->setSystemEMailAddress($options['adminemail']);
+			}
 		}
+
+		// Dispatch installation completed event
+		$adminUsername = !$disableAdminUser ? ($options['adminlogin'] ?? null) : null;
+		$adminEmail = !empty($options['adminemail']) ? $options['adminemail'] : null;
+		$this->eventDispatcher->dispatchTyped(
+			new InstallationCompletedEvent($dataDir, $adminUsername, $adminEmail)
+		);
 
 		return $error;
 	}
@@ -496,7 +531,11 @@ class Setup {
 		$jobList->add(BackgroundCleanupJob::class);
 		$jobList->add(RemoveOldTasksBackgroundJob::class);
 		$jobList->add(CleanupDeletedUsers::class);
+		$jobList->add(CleanupLoginTokens::class);
 		$jobList->add(GenerateMetadataJob::class);
+		$jobList->add(PreviewMigrationJob::class);
+		$jobList->add(ExpirePreviewsJob::class);
+		$jobList->add(CleanupBackgroundJobsJob::class);
 	}
 
 	/**
@@ -532,8 +571,7 @@ class Setup {
 	/**
 	 * Append the correct ErrorDocument path for Apache hosts
 	 *
-	 * @return bool True when success, False otherwise
-	 * @throws \OCP\AppFramework\QueryException
+	 * @throws QueryException
 	 */
 	public static function updateHtaccess(): bool {
 		$config = Server::get(SystemConfig::class);
@@ -544,7 +582,16 @@ class Setup {
 			return false;
 		}
 
-		$setupHelper = Server::get(\OC\Setup::class);
+		$setupHelper = Server::get(Setup::class);
+
+		// Note: The .htaccess file also needs to exist, otherwise `is_writable()`
+		// will return false, even though the file could be written.
+		// This function writes the .htaccess file in that case.
+		if (!file_exists($setupHelper->pathToHtaccess())) {
+			if (!touch($setupHelper->pathToHtaccess())) {
+				return false;
+			}
+		}
 
 		if (!is_writable($setupHelper->pathToHtaccess())) {
 			return false;

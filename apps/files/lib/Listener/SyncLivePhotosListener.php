@@ -17,7 +17,7 @@ use OCA\Files\Service\LivePhotosService;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\Exceptions\AbortedEventException;
-use OCP\Files\Cache\CacheEntryRemovedEvent;
+use OCP\Files\Cache\CacheEntriesRemovedEvent;
 use OCP\Files\Events\Node\BeforeNodeCopiedEvent;
 use OCP\Files\Events\Node\BeforeNodeDeletedEvent;
 use OCP\Files\Events\Node\BeforeNodeRenamedEvent;
@@ -37,6 +37,8 @@ class SyncLivePhotosListener implements IEventListener {
 	private array $pendingRenames = [];
 	/** @var Array<int, bool> */
 	private array $pendingDeletion = [];
+	/** @var Array<int> */
+	private array $pendingCopies = [];
 
 	public function __construct(
 		private ?Folder $userFolder,
@@ -47,6 +49,7 @@ class SyncLivePhotosListener implements IEventListener {
 	) {
 	}
 
+	#[\Override]
 	public function handle(Event $event): void {
 		if ($this->userFolder === null) {
 			return;
@@ -61,8 +64,8 @@ class SyncLivePhotosListener implements IEventListener {
 				$peerFileId = $this->livePhotosService->getLivePhotoPeerId($event->getSource()->getId());
 			} elseif ($event instanceof BeforeNodeDeletedEvent) {
 				$peerFileId = $this->livePhotosService->getLivePhotoPeerId($event->getNode()->getId());
-			} elseif ($event instanceof CacheEntryRemovedEvent) {
-				$peerFileId = $this->livePhotosService->getLivePhotoPeerId($event->getFileId());
+			} elseif ($event instanceof CacheEntriesRemovedEvent) {
+				$this->handleCacheEntriesRemovedEvent($event);
 			}
 
 			if ($peerFileId === null) {
@@ -81,9 +84,27 @@ class SyncLivePhotosListener implements IEventListener {
 				$this->handleMove($event->getSource(), $event->getTarget(), $peerFile);
 			} elseif ($event instanceof BeforeNodeDeletedEvent) {
 				$this->handleDeletion($event, $peerFile);
-			} elseif ($event instanceof CacheEntryRemovedEvent) {
-				$peerFile->delete();
 			}
+		}
+	}
+
+	public function handleCacheEntriesRemovedEvent(CacheEntriesRemovedEvent $cacheEntriesRemovedEvent): void {
+		$entries = $cacheEntriesRemovedEvent->getCacheEntryRemovedEvents();
+		$fileIds = [];
+		foreach ($entries as $entry) {
+			$fileIds[] = $entry->getFileId();
+		}
+
+		$peerFileIds = $this->livePhotosService->getLivePhotoPeerIds($fileIds);
+
+		foreach ($peerFileIds as $peerFileId) {
+			// Check the user's folder.
+			$peerFile = $this->userFolder->getFirstNodeById($peerFileId);
+
+			if ($peerFile === null) {
+				return; // Peer file not found.
+			}
+			$peerFile->delete();
 		}
 	}
 
@@ -142,7 +163,6 @@ class SyncLivePhotosListener implements IEventListener {
 		$this->pendingRenames = array_diff($this->pendingRenames, [$sourceFile->getId()]);
 	}
 
-
 	/**
 	 * handle copy, we already know if it is doable from BeforeNodeCopiedEvent, so we just copy the linked file
 	 */
@@ -152,7 +172,6 @@ class SyncLivePhotosListener implements IEventListener {
 		$targetParent = $targetFile->getParent();
 		$targetName = $targetFile->getName();
 		$peerTargetName = substr($targetName, 0, -strlen($sourceExtension)) . $peerFileExtension;
-
 
 		if ($targetParent->nodeExists($peerTargetName)) {
 			// If the copy was a folder copy, then the peer file already exists.
@@ -225,6 +244,11 @@ class SyncLivePhotosListener implements IEventListener {
 				$this->handleCopyRecursive($event, $sourceChild, $targetChild);
 			}
 		} elseif ($sourceNode instanceof File && $targetNode instanceof File) {
+			// in case the copy was initiated from this listener, we stop right now
+			if (in_array($sourceNode->getId(), $this->pendingCopies)) {
+				return;
+			}
+
 			$peerFileId = $this->livePhotosService->getLivePhotoPeerId($sourceNode->getId());
 			if ($peerFileId === null) {
 				return;
@@ -234,11 +258,13 @@ class SyncLivePhotosListener implements IEventListener {
 				return;
 			}
 
+			$this->pendingCopies[] = $peerFileId;
 			if ($event instanceof BeforeNodeCopiedEvent) {
 				$this->runMoveOrCopyChecks($sourceNode, $targetNode, $peerFile);
 			} elseif ($event instanceof NodeCopiedEvent) {
 				$this->handleCopy($sourceNode, $targetNode, $peerFile);
 			}
+			$this->pendingCopies = array_diff($this->pendingCopies, [$peerFileId]);
 		} else {
 			throw new Exception('Source and target type are not matching');
 		}

@@ -7,7 +7,7 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace Test\Core\Command\TwoFactorAuth;
+namespace Tests\Core\Command\TwoFactorAuth;
 
 use OC\Authentication\TwoFactorAuth\ProviderManager;
 use OC\Core\Command\TwoFactorAuth\Enable;
@@ -27,6 +27,7 @@ class EnableTest extends TestCase {
 	/** @var CommandTester */
 	private $command;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 

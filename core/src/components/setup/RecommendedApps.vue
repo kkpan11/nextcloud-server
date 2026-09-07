@@ -7,7 +7,7 @@
 	<div class="guest-box" data-cy-setup-recommended-apps>
 		<h2>{{ t('core', 'Recommended apps') }}</h2>
 		<p v-if="loadingApps" class="loading text-center">
-			{{ t('core', 'Loading apps …') }}
+			{{ t('core', 'Loading apps …') }}
 		</p>
 		<p v-else-if="loadingAppsError" class="loading-error text-center">
 			{{ t('core', 'Could not fetch list of apps from the App Store.') }}
@@ -19,53 +19,57 @@
 				<div class="info">
 					<h3>{{ customName(app) }}</h3>
 					<p v-text="customDescription(app.id)" />
-					<p v-if="app.installationError">
-						<strong>{{ t('core', 'App download or installation failed') }}</strong>
+					<p v-if="app.error">
+						<strong>{{ app.error }}</strong>
+					</p>
+					<p v-else-if="app.active">
+						<strong>{{ t('core', 'App already installed') }}</strong>
 					</p>
 					<p v-else-if="!app.isCompatible">
 						<strong>{{ t('core', 'Cannot install this app because it is not compatible') }}</strong>
 					</p>
-					<p v-else-if="!app.canInstall">
+					<p v-else-if="!canInstall(app)">
 						<strong>{{ t('core', 'Cannot install this app') }}</strong>
 					</p>
 				</div>
-				<NcCheckboxRadioSwitch :checked="app.isSelected || app.active"
+				<NcCheckboxRadioSwitch
+					:model-value="app.isSelected || app.active"
 					:disabled="!app.isCompatible || app.active"
 					:loading="app.loading"
-					@update:checked="toggleSelect(app.id)" />
+					@update:modelValue="toggleSelect(app.id)" />
 			</template>
 		</div>
 
 		<div class="dialog-row">
-			<NcButton v-if="showInstallButton && !installingApps"
-				type="tertiary"
-				role="link"
+			<NcButton
+				v-if="showInstallButton && !installingApps"
+				data-cy-setup-recommended-apps-skip
 				:href="defaultPageUrl"
-				data-cy-setup-recommended-apps-skip>
+				variant="tertiary">
 				{{ t('core', 'Skip') }}
 			</NcButton>
 
-			<NcButton v-if="showInstallButton"
-				type="primary"
+			<NcButton
+				v-if="showInstallButton"
+				data-cy-setup-recommended-apps-install
 				:disabled="installingApps || !isAnyAppSelected"
-				data-cy-setup-recommended-apps-install>
-				@click.stop.prevent="installApps">
-				{{ installingApps ? t('core', 'Installing apps …') : t('core', 'Install recommended apps') }}
+				variant="primary"
+				@click="installApps">
+				{{ installingApps ? t('core', 'Installing apps …') : t('core', 'Install recommended apps') }}
 			</NcButton>
 		</div>
 	</div>
 </template>
 
 <script>
-import { t } from '@nextcloud/l10n'
 import { loadState } from '@nextcloud/initial-state'
-import { generateUrl, imagePath } from '@nextcloud/router'
-import axios from '@nextcloud/axios'
-import pLimit from 'p-limit'
-import logger from '../../logger.js'
-
+import { t } from '@nextcloud/l10n'
+import { imagePath } from '@nextcloud/router'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
+import logger from '../../logger.js'
+import * as appstoreApi from '~/apps/appstore/src/service/api.ts'
+import { canInstall } from '~/apps/appstore/src/utils/appStatus.js'
 
 const recommended = {
 	calendar: {
@@ -95,6 +99,7 @@ const recommended = {
 	},
 	richdocumentscode: {
 		hidden: true,
+		required: ['richdocuments'],
 	},
 }
 const recommendedIds = Object.keys(recommended)
@@ -105,6 +110,14 @@ export default {
 		NcCheckboxRadioSwitch,
 		NcButton,
 	},
+
+	setup() {
+		return {
+			t,
+			canInstall,
+		}
+	},
+
 	data() {
 		return {
 			showInstallButton: false,
@@ -115,21 +128,28 @@ export default {
 			defaultPageUrl: loadState('core', 'defaultPageUrl'),
 		}
 	},
+
 	computed: {
 		recommendedApps() {
-			return this.apps.filter(app => recommendedIds.includes(app.id))
+			return this.apps.filter((app) => recommendedIds.includes(app.id))
 		},
+
 		isAnyAppSelected() {
-			return this.recommendedApps.some(app => app.isSelected)
+			return this.recommendedApps.some((app) => app.isSelected && !app.active)
 		},
 	},
+
 	async mounted() {
 		try {
-			const { data } = await axios.get(generateUrl('settings/apps/list'))
-			logger.info(`${data.apps.length} apps fetched`)
+			const apps = await appstoreApi.getApps()
+			logger.info(`${apps.length} apps fetched`)
 
-			this.apps = data.apps.map(app => Object.assign(app, { loading: false, installationError: false, isSelected: app.isCompatible }))
-			logger.debug(`${this.recommendedApps.length} recommended apps found`, { apps: this.recommendedApps })
+			this.apps = apps.map((app) => Object.assign(app, {
+				loading: false,
+				installationError: false,
+				isSelected: app.isCompatible && !this.isHidden(app.id),
+			}))
+			this.$nextTick(() => logger.debug(`${this.recommendedApps.length} recommended apps found`, { apps: this.recommendedApps }))
 
 			this.showInstallButton = true
 		} catch (error) {
@@ -140,37 +160,48 @@ export default {
 			this.loadingApps = false
 		}
 	},
+
 	methods: {
-		installApps() {
+		async installApps() {
+			const availableApps = this.recommendedApps.filter((app) => app.active || (app.isSelected && canInstall(app)))
+			const appsToInstall = [
+				// all possible selected apps that are not active yet
+				...availableApps.filter((app) => !app.active && app.isSelected),
+				// all hidden apps that are required by the selected apps
+				...this.recommendedApps.filter((app) => this.isHidden(app.id)
+					&& recommended[app.id].required.every((requiredAppId) => availableApps.some((requiredApp) => requiredApp.id === requiredAppId))),
+			]
+
+			logger.debug(`Installing ${appsToInstall.length} recommended apps`, { appIds: appsToInstall.map((app) => app.id) })
 			this.installingApps = true
+			/** @type {Promise<void>[]} */
+			const promises = []
+			for (const app of appsToInstall) {
+				app.loading = true
+				promises.push(appstoreApi.enableApp(app.id))
+			}
 
-			const limit = pLimit(1)
-			const installing = this.recommendedApps
-				.filter(app => !app.active && app.isCompatible && app.canInstall && app.isSelected)
-				.map(app => limit(async () => {
-					logger.info(`installing ${app.id}`)
-					app.loading = true
-					return axios.post(generateUrl('settings/apps/enable'), { appIds: [app.id], groups: [] })
-						.catch(error => {
-							logger.error(`could not install ${app.id}`, { error })
-							app.isSelected = false
-							app.installationError = true
-						})
-						.then(() => {
-							logger.info(`installed ${app.id}`)
-							app.loading = false
-							app.active = true
-						})
-				}))
-			logger.debug(`installing ${installing.length} recommended apps`)
-			Promise.all(installing)
-				.then(() => {
-					logger.info('all recommended apps installed, redirecting …')
-
-					window.location = this.defaultPageUrl
-				})
-				.catch(error => logger.error('could not install recommended apps', { error }))
+			const results = await Promise.allSettled(promises)
+			for (let i = 0; i < results.length; i++) {
+				const result = results[i]
+				const app = appsToInstall[i]
+				app.loading = false
+				if (result.status === 'rejected') {
+					if (result.reason instanceof Error && result.reason.message === 'Dialog closed') {
+						logger.info(`User cancelled the password confirmation for recommended app ${app.id}`)
+						app.error = t('core', 'Password confirmation was aborted')
+					} else {
+						logger.error(`could not install recommended app ${app.id}`, { error: result.reason })
+						app.error = t('core', 'App download or installation failed')
+					}
+					app.isSelected = false
+				} else {
+					app.active = true
+				}
+			}
+			this.installingApps = false
 		},
+
 		customIcon(appId) {
 			if (!(appId in recommended) || !recommended[appId].icon) {
 				logger.warn(`no app icon for recommended app ${appId}`)
@@ -178,12 +209,14 @@ export default {
 			}
 			return recommended[appId].icon
 		},
+
 		customName(app) {
 			if (!(app.id in recommended)) {
 				return app.name
 			}
 			return recommended[app.id].name || app.name
 		},
+
 		customDescription(appId) {
 			if (!(appId in recommended)) {
 				logger.warn(`no app description for recommended app ${appId}`)
@@ -191,18 +224,20 @@ export default {
 			}
 			return recommended[appId].description
 		},
+
 		isHidden(appId) {
 			if (!(appId in recommended)) {
 				return false
 			}
 			return !!recommended[appId].hidden
 		},
+
 		toggleSelect(appId) {
 			// disable toggle when installButton is disabled
 			if (!(appId in recommended) || !this.showInstallButton) {
 				return
 			}
-			const index = this.apps.findIndex(app => app.id === appId)
+			const index = this.apps.findIndex((app) => app.id === appId)
 			this.$set(this.apps[index], 'isSelected', !this.apps[index].isSelected)
 		},
 	},

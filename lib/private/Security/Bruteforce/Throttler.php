@@ -6,6 +6,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2016 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OC\Security\Bruteforce;
 
 use OC\Security\Bruteforce\Backend\IBackend;
@@ -46,6 +47,7 @@ class Throttler implements IThrottler {
 	/**
 	 * {@inheritDoc}
 	 */
+	#[\Override]
 	public function registerAttempt(string $action,
 		string $ip,
 		array $metadata = []): void {
@@ -82,6 +84,7 @@ class Throttler implements IThrottler {
 	/**
 	 * Check if the IP is whitelisted
 	 */
+	#[\Override]
 	public function isBypassListed(string $ip): bool {
 		return $this->allowList->isBypassListed($ip);
 	}
@@ -89,6 +92,7 @@ class Throttler implements IThrottler {
 	/**
 	 * {@inheritDoc}
 	 */
+	#[\Override]
 	public function showBruteforceWarning(string $ip, string $action = ''): bool {
 		$attempts = $this->getAttempts($ip, $action);
 		// 4 failed attempts is the last delay below 5 seconds
@@ -98,6 +102,7 @@ class Throttler implements IThrottler {
 	/**
 	 * {@inheritDoc}
 	 */
+	#[\Override]
 	public function getAttempts(string $ip, string $action = '', float $maxAgeHours = 12): int {
 		if ($maxAgeHours > 48) {
 			$this->logger->error('Bruteforce has to use less than 48 hours');
@@ -125,6 +130,7 @@ class Throttler implements IThrottler {
 	/**
 	 * {@inheritDoc}
 	 */
+	#[\Override]
 	public function getDelay(string $ip, string $action = ''): int {
 		$attempts = $this->getAttempts($ip, $action);
 		return $this->calculateDelay($attempts);
@@ -154,6 +160,7 @@ class Throttler implements IThrottler {
 	/**
 	 * {@inheritDoc}
 	 */
+	#[\Override]
 	public function resetDelay(string $ip, string $action, array $metadata): void {
 		// No need to log if the bruteforce protection is disabled
 		if (!$this->config->getSystemValueBool('auth.bruteforce.protection.enabled', true)) {
@@ -177,6 +184,7 @@ class Throttler implements IThrottler {
 	/**
 	 * {@inheritDoc}
 	 */
+	#[\Override]
 	public function resetDelayForIP(string $ip): void {
 		// No need to log if the bruteforce protection is disabled
 		if (!$this->config->getSystemValueBool('auth.bruteforce.protection.enabled', true)) {
@@ -194,6 +202,7 @@ class Throttler implements IThrottler {
 	/**
 	 * {@inheritDoc}
 	 */
+	#[\Override]
 	public function sleepDelay(string $ip, string $action = ''): int {
 		$delay = $this->getDelay($ip, $action);
 		if (!$this->config->getSystemValueBool('auth.bruteforce.protection.testing')) {
@@ -205,26 +214,29 @@ class Throttler implements IThrottler {
 	/**
 	 * {@inheritDoc}
 	 */
+	#[\Override]
 	public function sleepDelayOrThrowOnMax(string $ip, string $action = ''): int {
-		$attempts = $this->getAttempts($ip, $action, 0.5);
-		if ($attempts > $this->config->getSystemValueInt('auth.bruteforce.max-attempts', self::MAX_ATTEMPTS)) {
-			$this->logger->info('IP address blocked because it reached the maximum failed attempts in the last 30 minutes [action: {action}, attempts: {attempts}, ip: {ip}]', [
-				'action' => $action,
-				'ip' => $ip,
-				'attempts' => $attempts,
-			]);
-			// If the ip made too many attempts within the last 30 mins we don't execute anymore
-			throw new MaxDelayReached('Reached maximum delay');
-		}
-
+		$maxAttempts = $this->config->getSystemValueInt('auth.bruteforce.max-attempts', self::MAX_ATTEMPTS);
 		$attempts = $this->getAttempts($ip, $action);
-		if ($attempts > 10) {
+		if ($attempts > $maxAttempts) {
+			$attempts30mins = $this->getAttempts($ip, $action, 0.5);
+			if ($attempts30mins > $maxAttempts) {
+				$this->logger->info('IP address blocked because it reached the maximum failed attempts in the last 30 minutes [action: {action}, attempts: {attempts}, ip: {ip}]', [
+					'action' => $action,
+					'ip' => $ip,
+					'attempts' => $attempts30mins,
+				]);
+				// If the ip made too many attempts within the last 30 mins we don't execute anymore
+				throw new MaxDelayReached('Reached maximum delay');
+			}
+
 			$this->logger->info('IP address throttled because it reached the attempts limit in the last 12 hours [action: {action}, attempts: {attempts}, ip: {ip}]', [
 				'action' => $action,
 				'ip' => $ip,
 				'attempts' => $attempts,
 			]);
 		}
+
 		if ($attempts > 0) {
 			return $this->calculateDelay($attempts);
 		}

@@ -16,6 +16,7 @@ use OCP\Capabilities\ICapability;
 use OCP\Collaboration\Reference\IReferenceProvider;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\Files\Template\ICustomTemplateProvider;
+use OCP\GlobalScale\IGlobalScaleService;
 use OCP\IContainer;
 use OCP\Mail\Provider\IProvider as IMailProvider;
 use OCP\Notification\INotifier;
@@ -68,7 +69,7 @@ interface IRegistrationContext {
 	 *
 	 * @param string $name
 	 * @param callable $factory
-	 * @psalm-param callable(\Psr\Container\ContainerInterface): mixed $factory
+	 * @psalm-param callable(IContainer): mixed $factory
 	 * @param bool $shared If set to true the factory result will be cached otherwise every query will call the factory again
 	 *
 	 * @return void
@@ -161,8 +162,20 @@ interface IRegistrationContext {
 	 * @return void
 	 *
 	 * @since 20.0.0
+	 * @deprecated 34.0.0 Use registerAlternativeLoginProvider instead.
 	 */
 	public function registerAlternativeLogin(string $class): void;
+
+	/**
+	 * Register an alternative login options provider
+	 *
+	 * It is allowed to register more than one option per app.
+	 *
+	 * @param class-string<\OCP\Authentication\IAlternativeLoginProvider> $class
+	 *
+	 * @since 34.0.0
+	 */
+	public function registerAlternativeLoginProvider(string $class): void;
 
 	/**
 	 * Register an initialstate provider
@@ -315,9 +328,7 @@ interface IRegistrationContext {
 	/**
 	 * Register a resource backend for the DAV server
 	 *
-	 * @param string $actionClass
-	 * @psalm-param class-string<\OCP\Calendar\Resource\IBackend> $actionClass
-	 * @return void
+	 * @param class-string<\OCP\Calendar\Resource\IBackend> $class
 	 * @since 24.0.0
 	 */
 	public function registerCalendarResourceBackend(string $class): void;
@@ -325,17 +336,13 @@ interface IRegistrationContext {
 	/**
 	 * Register a room backend for the DAV server
 	 *
-	 * @param string $actionClass
-	 * @psalm-param class-string<\OCP\Calendar\Room\IBackend> $actionClass
-	 * @return void
+	 * @param class-string<\OCP\Calendar\Room\IBackend> $class
 	 * @since 24.0.0
 	 */
 	public function registerCalendarRoomBackend(string $class): void;
 
 	/**
-	 * @param string $class
-	 * @psalm-param class-string<\OCP\Calendar\Room\IBackend> $actionClass
-	 * @return void
+	 * @param class-string<\OCP\Teams\ITeamResourceProvider> $class
 	 * @since 29.0.0
 	 */
 	public function registerTeamResourceProvider(string $class): void;
@@ -436,15 +443,22 @@ interface IRegistrationContext {
 	 */
 	public function registerMailProvider(string $class): void;
 
-
 	/**
 	 * Register an implementation of \OCP\Config\Lexicon\IConfigLexicon that
 	 * will handle the config lexicon
 	 *
 	 * @param string $configLexiconClass
 	 *
-	 * @psalm-param class-string<\NCU\Config\Lexicon\IConfigLexicon> $configLexiconClass
+	 * @psalm-param class-string<\OCP\Config\Lexicon\ILexicon> $configLexiconClass
 	 * @since 31.0.0
 	 */
 	public function registerConfigLexicon(string $configLexiconClass): void;
+
+	/**
+	 * Register an implementation of {@see IGlobalScaleService}.
+	 *
+	 * @param class-string<IGlobalScaleService> $globalScaleServiceClass
+	 * @since 34.0.3
+	 */
+	public function registerGlobalScaleService(string $globalScaleServiceClass): void;
 }

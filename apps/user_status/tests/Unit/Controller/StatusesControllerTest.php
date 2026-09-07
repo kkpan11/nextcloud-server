@@ -6,6 +6,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2020 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OCA\UserStatus\Tests\Controller;
 
 use OCA\UserStatus\Controller\StatusesController;
@@ -13,24 +14,24 @@ use OCA\UserStatus\Db\UserStatus;
 use OCA\UserStatus\Service\StatusService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\OCS\OCSNotFoundException;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IRequest;
+use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
 class StatusesControllerTest extends TestCase {
-
-	/** @var StatusService|\PHPUnit\Framework\MockObject\MockObject */
-	private $service;
-
-	/** @var StatusesController */
-	private $controller;
+	private StatusService&MockObject $service;
+	private IEventDispatcher&MockObject $eventDispatcher;
+	private StatusesController $controller;
 
 	protected function setUp(): void {
 		parent::setUp();
 
 		$request = $this->createMock(IRequest::class);
 		$this->service = $this->createMock(StatusService::class);
+		$this->eventDispatcher = $this->createMock(IEventDispatcher::class);
 
-		$this->controller = new StatusesController('user_status', $request, $this->service);
+		$this->controller = new StatusesController('user_status', $request, $this->service, $this->eventDispatcher);
 	}
 
 	public function testFindAll(): void {

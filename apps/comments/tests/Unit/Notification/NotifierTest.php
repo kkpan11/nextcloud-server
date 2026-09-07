@@ -1,8 +1,12 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * SPDX-FileCopyrightText: 2016 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OCA\Comments\Tests\Unit\Notification;
 
 use OCA\Comments\Notification\Notifier;
@@ -23,27 +27,18 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
 class NotifierTest extends TestCase {
-	/** @var Notifier */
-	protected $notifier;
-	/** @var IFactory|MockObject */
-	protected $l10nFactory;
-	/** @var IL10N|MockObject */
-	protected $l;
-	/** @var IRootFolder|MockObject */
-	protected $folder;
-	/** @var ICommentsManager|MockObject */
-	protected $commentsManager;
-	/** @var IURLGenerator|MockObject */
-	protected $url;
-	/** @var IUserManager|MockObject */
-	protected $userManager;
-	/** @var INotification|MockObject */
-	protected $notification;
-	/** @var IComment|MockObject */
-	protected $comment;
-	/** @var string */
-	protected $lc = 'tlh_KX';
+	protected IFactory&MockObject $l10nFactory;
+	protected IL10N&MockObject $l;
+	protected IRootFolder&MockObject $folder;
+	protected ICommentsManager&MockObject $commentsManager;
+	protected IURLGenerator&MockObject $url;
+	protected IUserManager&MockObject $userManager;
+	protected INotification&MockObject $notification;
+	protected IComment&MockObject $comment;
+	protected Notifier $notifier;
+	protected string $lc = 'tlh_KX';
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -75,9 +70,8 @@ class NotifierTest extends TestCase {
 	public function testPrepareSuccess(): void {
 		$fileName = 'Gre\'thor.odp';
 		$displayName = 'Huraga';
-		$message = '@Huraga mentioned you in a comment on "Gre\'thor.odp"';
 
-		/** @var Node|MockObject $node */
+		/** @var Node&MockObject $node */
 		$node = $this->createMock(Node::class);
 		$node
 			->expects($this->atLeastOnce())
@@ -94,9 +88,9 @@ class NotifierTest extends TestCase {
 			->with('you')
 			->willReturn($userFolder);
 		$userFolder->expects($this->once())
-			->method('getById')
+			->method('getFirstNodeById')
 			->with('678')
-			->willReturn([$node]);
+			->willReturn($node);
 
 		$this->notification->expects($this->exactly(2))
 			->method('getUser')
@@ -192,7 +186,6 @@ class NotifierTest extends TestCase {
 
 	public function testPrepareSuccessDeletedUser(): void {
 		$fileName = 'Gre\'thor.odp';
-		$message = 'You were mentioned on "Gre\'thor.odp", in a comment by an account that has since been deleted';
 
 		/** @var Node|MockObject $node */
 		$node = $this->createMock(Node::class);
@@ -211,9 +204,9 @@ class NotifierTest extends TestCase {
 			->with('you')
 			->willReturn($userFolder);
 		$userFolder->expects($this->once())
-			->method('getById')
+			->method('getFirstNodeById')
 			->with('678')
-			->willReturn([$node]);
+			->willReturn($node);
 
 		$this->notification->expects($this->exactly(2))
 			->method('getUser')
@@ -304,13 +297,12 @@ class NotifierTest extends TestCase {
 		$this->notifier->prepare($this->notification, $this->lc);
 	}
 
-
 	public function testPrepareDifferentApp(): void {
 		$this->expectException(UnknownNotificationException::class);
 
 		$this->folder
 			->expects($this->never())
-			->method('getById');
+			->method('getFirstNodeById');
 
 		$this->notification
 			->expects($this->once())
@@ -341,13 +333,12 @@ class NotifierTest extends TestCase {
 		$this->notifier->prepare($this->notification, $this->lc);
 	}
 
-
 	public function testPrepareNotFound(): void {
 		$this->expectException(UnknownNotificationException::class);
 
 		$this->folder
 			->expects($this->never())
-			->method('getById');
+			->method('getFirstNodeById');
 
 		$this->notification
 			->expects($this->once())
@@ -379,7 +370,6 @@ class NotifierTest extends TestCase {
 		$this->notifier->prepare($this->notification, $this->lc);
 	}
 
-
 	public function testPrepareDifferentSubject(): void {
 		$this->expectException(UnknownNotificationException::class);
 
@@ -387,7 +377,7 @@ class NotifierTest extends TestCase {
 
 		$this->folder
 			->expects($this->never())
-			->method('getById');
+			->method('getFirstNodeById');
 
 		$this->notification
 			->expects($this->once())
@@ -436,7 +426,6 @@ class NotifierTest extends TestCase {
 		$this->notifier->prepare($this->notification, $this->lc);
 	}
 
-
 	public function testPrepareNotFiles(): void {
 		$this->expectException(UnknownNotificationException::class);
 
@@ -444,7 +433,7 @@ class NotifierTest extends TestCase {
 
 		$this->folder
 			->expects($this->never())
-			->method('getById');
+			->method('getFirstNodeById');
 
 		$this->notification
 			->expects($this->once())
@@ -494,7 +483,6 @@ class NotifierTest extends TestCase {
 		$this->notifier->prepare($this->notification, $this->lc);
 	}
 
-
 	public function testPrepareUnresolvableFileID(): void {
 		$this->expectException(AlreadyProcessedException::class);
 
@@ -506,9 +494,9 @@ class NotifierTest extends TestCase {
 			->with('you')
 			->willReturn($userFolder);
 		$userFolder->expects($this->once())
-			->method('getById')
+			->method('getFirstNodeById')
 			->with('678')
-			->willReturn([]);
+			->willReturn(null);
 
 		$this->notification->expects($this->once())
 			->method('getUser')

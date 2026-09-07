@@ -7,7 +7,7 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace Core\Command\TwoFactorAuth;
+namespace Tests\Core\Command\TwoFactorAuth;
 
 use OC\Core\Command\TwoFactorAuth\State;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
@@ -27,6 +27,7 @@ class StateTest extends TestCase {
 	/** @var CommandTester|MockObject */
 	private $cmd;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 

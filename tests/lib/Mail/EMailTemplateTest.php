@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2017 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
@@ -23,6 +24,7 @@ class EMailTemplateTest extends TestCase {
 	/** @var EMailTemplate */
 	private $emailTemplate;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -172,8 +174,6 @@ class EMailTemplateTest extends TestCase {
 		$this->assertSame($expectedTXT, $this->emailTemplate->renderText());
 	}
 
-
-
 	public function testEMailTemplateAlternativePlainTexts(): void {
 		$this->defaults
 			->expects($this->atLeastOnce())
@@ -216,5 +216,21 @@ class EMailTemplateTest extends TestCase {
 		$this->assertSame($expectedHTML, $this->emailTemplate->renderHtml());
 		$expectedTXT = file_get_contents(\OC::$SERVERROOT . '/tests/data/emails/new-account-email-custom-text-alternative.txt');
 		$this->assertSame($expectedTXT, $this->emailTemplate->renderText());
+	}
+
+	public function testEMailTemplateEmbedsLogo(): void {
+		$this->defaults->method('getDefaultColorPrimary')->willReturn('#0082c9');
+		$this->defaults->method('getName')->willReturn('TestCloud');
+		$this->defaults->method('getLogoImage')
+			->willReturn(['content' => 'PNGDATA', 'mimeType' => 'image/png']);
+		$this->urlGenerator->expects($this->never())->method('getAbsoluteURL');
+
+		$this->emailTemplate->addHeader();
+
+		$this->assertStringContainsString('src="cid:logo"', $this->emailTemplate->renderHtml());
+		$this->assertSame(
+			[['name' => 'logo', 'content' => 'PNGDATA', 'mimeType' => 'image/png']],
+			$this->emailTemplate->getInlineImages()
+		);
 	}
 }

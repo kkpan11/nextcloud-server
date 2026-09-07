@@ -1,9 +1,12 @@
 <?php
+
+declare(strict_types=1);
 /**
  * SPDX-FileCopyrightText: 2019-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OCA\Files_External\Tests;
 
 use OCA\Files_External\Lib\DefinitionParameter as Param;
@@ -48,7 +51,7 @@ class DefinitionParameterTest extends \Test\TestCase {
 		], $param->jsonSerialize());
 	}
 
-	public function validateValueProvider() {
+	public static function validateValueProvider(): array {
 		return [
 			[Param::VALUE_TEXT, Param::FLAG_NONE, 'abc', true],
 			[Param::VALUE_TEXT, Param::FLAG_NONE, '', false],
@@ -66,9 +69,7 @@ class DefinitionParameterTest extends \Test\TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider validateValueProvider
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider(methodName: 'validateValueProvider')]
 	public function testValidateValue($type, $flags, $value, $success, $expectedValue = null): void {
 		$param = new Param('foo', 'bar');
 		$param->setType($type);

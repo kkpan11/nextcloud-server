@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2018 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
@@ -19,6 +20,7 @@ class LanguageIteratorTest extends TestCase {
 	/** @var LanguageIterator */
 	protected $iterator;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -28,7 +30,7 @@ class LanguageIteratorTest extends TestCase {
 		$this->iterator = new LanguageIterator($this->user, $this->config);
 	}
 
-	public function languageSettingsProvider() {
+	public static function languageSettingsProvider(): array {
 		return [
 			// all language settings set
 			[ 'de_DE', 'es_CU', 'zh_TW', ['de_DE', 'de', 'es_CU', 'es', 'zh_TW', 'zh', 'en']],
@@ -53,13 +55,10 @@ class LanguageIteratorTest extends TestCase {
 			[ 'de', null, 'en', ['de', 'en', 'en']],
 			// nothing is set
 			[ false, null, 'en', ['en', 'en']],
-
 		];
 	}
 
-	/**
-	 * @dataProvider languageSettingsProvider
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('languageSettingsProvider')]
 	public function testIterator($forcedLang, $userLang, $sysLang, $expectedValues): void {
 		$this->config->expects($this->any())
 			->method('getSystemValue')

@@ -6,6 +6,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2016 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OC\Core\Controller;
 
 use OCP\AppFramework\Controller;
@@ -152,15 +153,12 @@ class PreviewController extends Controller {
 
 		// Is this header is set it means our UI is doing a preview for no-download shares
 		// we check a header so we at least prevent people from using the link directly (obfuscation)
-		$isNextcloudPreview = $this->request->getHeader('X-NC-Preview') === 'true';
+		$isNextcloudPreview = $this->request->getHeader('x-nc-preview') === 'true';
 		$storage = $node->getStorage();
 		if ($isNextcloudPreview === false && $storage->instanceOfStorage(ISharedStorage::class)) {
 			/** @var ISharedStorage $storage */
 			$share = $storage->getShare();
-			$attributes = $share->getAttributes();
-			// No "allow preview" header set, so we must check if
-			// the share has not explicitly disabled download permissions
-			if ($attributes?->getAttribute('permissions', 'download') === false) {
+			if (!$share->canSeeContent()) {
 				return new DataResponse([], Http::STATUS_FORBIDDEN);
 			}
 		}

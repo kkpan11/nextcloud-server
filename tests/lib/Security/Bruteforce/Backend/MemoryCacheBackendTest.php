@@ -26,6 +26,7 @@ class MemoryCacheBackendTest extends TestCase {
 	private $cache;
 	private IBackend $backend;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -36,7 +37,7 @@ class MemoryCacheBackendTest extends TestCase {
 		$this->cacheFactory
 			->expects($this->once())
 			->method('createDistributed')
-			->with('OC\Security\Bruteforce\Backend\MemoryCacheBackend')
+			->with(MemoryCacheBackend::class)
 			->willReturn($this->cache);
 
 		$this->backend = new MemoryCacheBackend(
@@ -55,7 +56,7 @@ class MemoryCacheBackendTest extends TestCase {
 		$this->assertSame(0, $this->backend->getAttempts('10.10.10.10/32', 0));
 	}
 
-	public function dataGetAttempts(): array {
+	public static function dataGetAttempts(): array {
 		return [
 			[0, null, null, 4],
 			[100, null, null, 2],
@@ -67,9 +68,7 @@ class MemoryCacheBackendTest extends TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider dataGetAttempts
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataGetAttempts')]
 	public function testGetAttempts(int $maxAge, ?string $action, ?array $metadata, int $expected): void {
 		$this->cache
 			->expects($this->once())

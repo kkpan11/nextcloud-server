@@ -1,8 +1,10 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2017 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OC\Core\Controller;
 
 use OC\Authentication\Events\AppPasswordCreatedEvent;
@@ -16,13 +18,16 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\NoSameSiteCookieRequired;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
+use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\Attribute\UseSession;
 use OCP\AppFramework\Http\ContentSecurityPolicy;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
+use OCP\AppFramework\Services\IInitialState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Exceptions\InvalidTokenException;
 use OCP\Authentication\Token\IToken;
@@ -33,11 +38,11 @@ use OCP\IL10N;
 use OCP\IRequest;
 use OCP\ISession;
 use OCP\IURLGenerator;
-use OCP\IUser;
 use OCP\IUserSession;
 use OCP\Security\ICrypto;
 use OCP\Security\ISecureRandom;
 use OCP\Session\Exceptions\SessionNotAvailableException;
+use OCP\Util;
 
 #[OpenAPI(scope: OpenAPI::SCOPE_IGNORE)]
 class ClientFlowLoginController extends Controller {
@@ -59,12 +64,13 @@ class ClientFlowLoginController extends Controller {
 		private IEventDispatcher $eventDispatcher,
 		private ITimeFactory $timeFactory,
 		private IConfig $config,
+		private IInitialState $initialState,
 	) {
 		parent::__construct($appName, $request);
 	}
 
 	private function getClientName(): string {
-		$userAgent = $this->request->getHeader('USER_AGENT');
+		$userAgent = $this->request->getHeader('user-agent');
 		return $userAgent !== '' ? $userAgent : 'unknown';
 	}
 
@@ -98,7 +104,7 @@ class ClientFlowLoginController extends Controller {
 		$client = null;
 		if ($clientIdentifier !== '') {
 			$client = $this->clientMapper->getByIdentifier($clientIdentifier);
-			$clientName = $client->getName();
+			$clientName = $client->name;
 		}
 
 		// No valid clientIdentifier given and no valid API Request (APIRequest header not set)
@@ -108,8 +114,8 @@ class ClientFlowLoginController extends Controller {
 				$this->appName,
 				'error',
 				[
-					'errors' =>
-					[
+					'errors'
+					=> [
 						[
 							'error' => 'Access Forbidden',
 							'hint' => 'Invalid request',
@@ -128,40 +134,49 @@ class ClientFlowLoginController extends Controller {
 
 		$csp = new ContentSecurityPolicy();
 		if ($client) {
-			$csp->addAllowedFormActionDomain($client->getRedirectUri());
+			$csp->addAllowedFormActionDomain($client->redirectUri);
 		} else {
 			$csp->addAllowedFormActionDomain('nc://*');
 		}
 
+		$this->initialState->provideInitialState('loginFlowState', 'auth');
+		$this->initialState->provideInitialState('loginFlowAuth', [
+			'client' => $clientName,
+			'clientIdentifier' => $clientIdentifier,
+			'instanceName' => $this->defaults->getName(),
+			'stateToken' => $stateToken,
+			'serverHost' => $this->getServerPath(),
+			'oauthState' => $this->session->get('oauth.state'),
+			'direct' => (bool)$direct,
+			'providedRedirectUri' => $providedRedirectUri,
+			'loginRedirectUrl' => $this->urlGenerator->linkToRoute(
+				'core.ClientFlowLogin.grantPage',
+				[
+					'stateToken' => $stateToken,
+					'clientIdentifier' => $clientIdentifier,
+					'oauthState' => $this->session->get('oauth.state'),
+					'user' => $user,
+					'direct' => $direct,
+					'providedRedirectUri' => $providedRedirectUri,
+				]),
+			'appTokenUrl' => $this->urlGenerator->linkToRouteAbsolute('core.ClientFlowLogin.apptokenRedirect'),
+		]);
+
+		Util::addScript('core', 'login_flow');
 		$response = new StandaloneTemplateResponse(
 			$this->appName,
-			'loginflow/authpicker',
-			[
-				'client' => $clientName,
-				'clientIdentifier' => $clientIdentifier,
-				'instanceName' => $this->defaults->getName(),
-				'urlGenerator' => $this->urlGenerator,
-				'stateToken' => $stateToken,
-				'serverHost' => $this->getServerPath(),
-				'oauthState' => $this->session->get('oauth.state'),
-				'user' => $user,
-				'direct' => $direct,
-				'providedRedirectUri' => $providedRedirectUri,
-			],
-			'guest'
+			'loginflow',
+			renderAs: 'guest'
 		);
-
 		$response->setContentSecurityPolicy($csp);
 		return $response;
 	}
 
-	/**
-	 * @NoSameSiteCookieRequired
-	 */
 	#[NoAdminRequired]
 	#[NoCSRFRequired]
 	#[UseSession]
 	#[FrontpageRoute(verb: 'GET', url: '/login/flow/grant')]
+	#[NoSameSiteCookieRequired]
 	public function grantPage(
 		string $stateToken = '',
 		string $clientIdentifier = '',
@@ -176,36 +191,41 @@ class ClientFlowLoginController extends Controller {
 		$client = null;
 		if ($clientIdentifier !== '') {
 			$client = $this->clientMapper->getByIdentifier($clientIdentifier);
-			$clientName = $client->getName();
+			$clientName = $client->name;
 		}
 
 		$csp = new ContentSecurityPolicy();
 		if ($client) {
-			$csp->addAllowedFormActionDomain($client->getRedirectUri());
+			$csp->addAllowedFormActionDomain($client->redirectUri);
 		} else {
 			$csp->addAllowedFormActionDomain('nc://*');
 		}
 
-		/** @var IUser $user */
 		$user = $this->userSession->getUser();
+		\assert($user !== null);
 
+		$this->initialState->provideInitialState('loginFlowState', 'grant');
+		$this->initialState->provideInitialState('loginFlowGrant', [
+			'actionUrl' => $this->urlGenerator->linkToRouteAbsolute(
+				'core.ClientFlowLogin.generateAppPassword',
+			),
+			'client' => $clientName,
+			'clientIdentifier' => $clientIdentifier,
+			'instanceName' => $this->defaults->getName(),
+			'stateToken' => $stateToken,
+			'serverHost' => $this->getServerPath(),
+			'oauthState' => $this->session->get('oauth.state'),
+			'direct' => $direct,
+			'providedRedirectUri' => $providedRedirectUri,
+			'userDisplayName' => $user->getDisplayName(),
+			'userId' => $user->getUID(),
+		]);
+
+		Util::addScript('core', 'login_flow');
 		$response = new StandaloneTemplateResponse(
 			$this->appName,
-			'loginflow/grant',
-			[
-				'userId' => $user->getUID(),
-				'userDisplayName' => $user->getDisplayName(),
-				'client' => $clientName,
-				'clientIdentifier' => $clientIdentifier,
-				'instanceName' => $this->defaults->getName(),
-				'urlGenerator' => $this->urlGenerator,
-				'stateToken' => $stateToken,
-				'serverHost' => $this->getServerPath(),
-				'oauthState' => $this->session->get('oauth.state'),
-				'direct' => $direct,
-				'providedRedirectUri' => $providedRedirectUri,
-			],
-			'guest'
+			'loginflow',
+			renderAs: 'guest'
 		);
 
 		$response->setContentSecurityPolicy($csp);
@@ -214,6 +234,7 @@ class ClientFlowLoginController extends Controller {
 
 	#[NoAdminRequired]
 	#[UseSession]
+	#[PasswordConfirmationRequired(strict: false)]
 	#[FrontpageRoute(verb: 'POST', url: '/login/flow')]
 	public function generateAppPassword(
 		string $stateToken,
@@ -253,7 +274,7 @@ class ClientFlowLoginController extends Controller {
 		$client = false;
 		if ($clientIdentifier !== '') {
 			$client = $this->clientMapper->getByIdentifier($clientIdentifier);
-			$clientName = $client->getName();
+			$clientName = $client->name;
 		}
 
 		$token = $this->random->generate(72, ISecureRandom::CHAR_UPPER . ISecureRandom::CHAR_LOWER . ISecureRandom::CHAR_DIGITS);
@@ -271,16 +292,16 @@ class ClientFlowLoginController extends Controller {
 		if ($client) {
 			$code = $this->random->generate(128, ISecureRandom::CHAR_UPPER . ISecureRandom::CHAR_LOWER . ISecureRandom::CHAR_DIGITS);
 			$accessToken = new AccessToken();
-			$accessToken->setClientId($client->getId());
-			$accessToken->setEncryptedToken($this->crypto->encrypt($token, $code));
-			$accessToken->setHashedCode(hash('sha512', $code));
-			$accessToken->setTokenId($generatedToken->getId());
-			$accessToken->setCodeCreatedAt($this->timeFactory->now()->getTimestamp());
+			$accessToken->clientId = $client->id;
+			$accessToken->encryptedToken = $this->crypto->encrypt($token, $code);
+			$accessToken->hashedCode = hash('sha512', $code);
+			$accessToken->tokenId = $generatedToken->getId();
+			$accessToken->codeCreatedAt = $this->timeFactory->now()->getTimestamp();
 			$this->accessTokenMapper->insert($accessToken);
 
 			$enableOcClients = $this->config->getSystemValueBool('oauth2.enable_oc_clients', false);
 
-			$redirectUri = $client->getRedirectUri();
+			$redirectUri = $client->redirectUri;
 			if ($enableOcClients && $redirectUri === 'http://localhost:*') {
 				// Sanity check untrusted redirect URI provided by the client first
 				if (!preg_match('/^http:\/\/localhost:[0-9]+$/', $providedRedirectUri)) {

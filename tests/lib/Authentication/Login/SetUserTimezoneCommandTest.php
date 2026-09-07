@@ -14,13 +14,13 @@ use OCP\IConfig;
 use OCP\ISession;
 use PHPUnit\Framework\MockObject\MockObject;
 
-class SetUserTimezoneCommandTest extends ALoginCommandTest {
-	/** @var IConfig|MockObject */
-	private $config;
+class SetUserTimezoneCommandTest extends ALoginTestCommand {
 
-	/** @var ISession|MockObject */
-	private $session;
+	private IConfig&MockObject $config;
 
+	private ISession&MockObject $session;
+
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -45,19 +45,93 @@ class SetUserTimezoneCommandTest extends ALoginCommandTest {
 		$this->assertTrue($result->isSuccess());
 	}
 
-	public function testProcess(): void {
-		$data = $this->getLoggedInLoginDataWithTimezone();
+	/**
+	 * Debian and Ubuntu ship the tz database's backward links in a separate
+	 * tzdata-legacy package, so pick an alias this platform actually knows
+	 * instead of hardcoding one.
+	 */
+	private static function findBackwardCompatibleTimezone(): ?string {
+		$aliases = array_diff(
+			\DateTimeZone::listIdentifiers(\DateTimeZone::ALL_WITH_BC),
+			\DateTimeZone::listIdentifiers(),
+		);
+		return $aliases === [] ? null : reset($aliases);
+	}
+
+	public static function dataAcceptedTimezone(): array {
+		return [
+			'primary identifier' => ['Europe/Vienna'],
+			'backward compatible alias' => [self::findBackwardCompatibleTimezone()],
+		];
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataAcceptedTimezone')]
+	public function testProcess(?string $timezone): void {
+		if ($timezone === null) {
+			$this->markTestSkipped('No backward compatible timezone aliases in this platform\'s tz database');
+		}
+
+		$data = $this->getLoggedInLoginDataWithTimezone($timezone);
 		$this->user->expects($this->once())
 			->method('getUID')
 			->willReturn($this->username);
+		$this->config->expects($this->once())
+			->method('getUserValue')
+			->with(
+				$this->username,
+				'core',
+				'timezone',
+				''
+			)
+			->willReturn('');
 		$this->config->expects($this->once())
 			->method('setUserValue')
 			->with(
 				$this->username,
 				'core',
 				'timezone',
-				$this->timezone
+				$timezone
 			);
+		$this->session->expects($this->once())
+			->method('set')
+			->with(
+				'timezone',
+				$this->timeZoneOffset
+			);
+
+		$result = $this->cmd->process($data);
+
+		$this->assertTrue($result->isSuccess());
+	}
+
+	public function testProcessUnknownTimezone(): void {
+		$data = $this->getLoggedInLoginDataWithTimezone('Mars/Olympus_Mons');
+		$this->config->expects($this->never())
+			->method('setUserValue');
+		$this->session->expects($this->never())
+			->method('set');
+
+		$result = $this->cmd->process($data);
+
+		$this->assertTrue($result->isSuccess());
+	}
+
+	public function testProcessAlreadySet(): void {
+		$data = $this->getLoggedInLoginDataWithTimezone();
+		$this->user->expects($this->once())
+			->method('getUID')
+			->willReturn($this->username);
+		$this->config->expects($this->once())
+			->method('getUserValue')
+			->with(
+				$this->username,
+				'core',
+				'timezone',
+				'',
+			)
+			->willReturn('Europe/Berlin');
+		$this->config->expects($this->never())
+			->method('setUserValue');
 		$this->session->expects($this->once())
 			->method('set')
 			->with(

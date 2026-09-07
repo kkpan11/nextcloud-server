@@ -30,6 +30,7 @@ class Scan extends StorageAuthBase {
 		parent::__construct($globalService, $userManager);
 	}
 
+	#[\Override]
 	protected function configure(): void {
 		$this
 			->setName('files_external:scan')
@@ -54,10 +55,16 @@ class Scan extends StorageAuthBase {
 				InputOption::VALUE_OPTIONAL,
 				'The path in the storage to scan',
 				''
+			)->addOption(
+				'unscanned',
+				'',
+				InputOption::VALUE_NONE,
+				'only scan files which are marked as not fully scanned'
 			);
 		parent::configure();
 	}
 
+	#[\Override]
 	protected function execute(InputInterface $input, OutputInterface $output): int {
 		[, $storage] = $this->createStorage($input, $output);
 		if ($storage === null) {
@@ -84,7 +91,15 @@ class Scan extends StorageAuthBase {
 		});
 
 		try {
-			$scanner->scan($path);
+			if ($input->getOption('unscanned')) {
+				if ($path !== '') {
+					$output->writeln('<error>--unscanned is mutually exclusive with --path</error>');
+					return 1;
+				}
+				$scanner->backgroundScan();
+			} else {
+				$scanner->scan($path);
+			}
 		} catch (LockedException $e) {
 			if (is_string($e->getReadablePath()) && str_starts_with($e->getReadablePath(), 'scanner::')) {
 				if ($e->getReadablePath() === 'scanner::') {
@@ -138,7 +153,6 @@ class Scan extends StorageAuthBase {
 			->setRows([$rows]);
 		$table->render();
 	}
-
 
 	/**
 	 * Formats microtime into a human readable format

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
@@ -8,14 +9,19 @@
 namespace Test;
 
 use OC_Util;
+use OCP\Files;
+use OCP\IConfig;
+use OCP\ISession;
+use OCP\ITempManager;
+use OCP\Server;
 use OCP\Util;
 
 /**
  * Class UtilTest
  *
  * @package Test
- * @group DB
  */
+#[\PHPUnit\Framework\Attributes\Group('DB')]
 class UtilTest extends \Test\TestCase {
 	public function testGetVersion(): void {
 		$version = Util::getVersion();
@@ -30,17 +36,11 @@ class UtilTest extends \Test\TestCase {
 			'While it is unusual to pass an array',
 			'this function actually <blink>supports</blink> it.',
 			'And therefore there needs to be a <script>alert("Unit"+\'test\')</script> for it!',
-			[
-				'And It Even May <strong>Nest</strong>',
-			],
 		];
 		$goodArray = [
 			'While it is unusual to pass an array',
 			'this function actually &lt;blink&gt;supports&lt;/blink&gt; it.',
 			'And therefore there needs to be a &lt;script&gt;alert(&quot;Unit&quot;+&#039;test&#039;)&lt;/script&gt; for it!',
-			[
-				'And It Even May &lt;strong&gt;Nest&lt;/strong&gt;'
-			],
 		];
 		$result = Util::sanitizeHTML($badArray);
 		$this->assertEquals($goodArray, $result);
@@ -95,7 +95,7 @@ class UtilTest extends \Test\TestCase {
 	 * If no strict email check is enabled "localhost" should validate as a valid email domain
 	 */
 	public function testGetDefaultEmailAddress(): void {
-		$config = \OC::$server->getConfig();
+		$config = Server::get(IConfig::class);
 		$config->setAppValue('core', 'enforce_strict_email_check', 'no');
 		$email = Util::getDefaultEmailAddress('no-reply');
 		$this->assertEquals('no-reply@localhost', $email);
@@ -103,7 +103,7 @@ class UtilTest extends \Test\TestCase {
 	}
 
 	public function testGetDefaultEmailAddressFromConfig(): void {
-		$config = \OC::$server->getConfig();
+		$config = Server::get(IConfig::class);
 		$config->setSystemValue('mail_domain', 'example.com');
 		$email = Util::getDefaultEmailAddress('no-reply');
 		$this->assertEquals('no-reply@example.com', $email);
@@ -111,7 +111,7 @@ class UtilTest extends \Test\TestCase {
 	}
 
 	public function testGetConfiguredEmailAddressFromConfig(): void {
-		$config = \OC::$server->getConfig();
+		$config = Server::get(IConfig::class);
 		$config->setSystemValue('mail_domain', 'example.com');
 		$config->setSystemValue('mail_from_address', 'owncloud');
 		$email = Util::getDefaultEmailAddress('no-reply');
@@ -121,7 +121,7 @@ class UtilTest extends \Test\TestCase {
 	}
 
 	public function testGetInstanceIdGeneratesValidId(): void {
-		\OC::$server->getConfig()->deleteSystemValue('instanceid');
+		Server::get(IConfig::class)->deleteSystemValue('instanceid');
 		$instanceId = OC_Util::getInstanceId();
 		$this->assertStringStartsWith('oc', $instanceId);
 		$matchesRegex = preg_match('/^[a-z0-9]+$/', $instanceId);
@@ -132,42 +132,43 @@ class UtilTest extends \Test\TestCase {
 	 * Test needUpgrade() when the core version is increased
 	 */
 	public function testNeedUpgradeCore(): void {
-		$config = \OC::$server->getConfig();
+		$config = Server::get(IConfig::class);
 		$oldConfigVersion = $config->getSystemValue('version', '0.0.0');
-		$oldSessionVersion = \OC::$server->getSession()->get('OC_Version');
+		$oldSessionVersion = Server::get(ISession::class)->get('OC_Version');
 
 		$this->assertFalse(Util::needUpgrade());
 
 		$config->setSystemValue('version', '7.0.0.0');
-		\OC::$server->getSession()->set('OC_Version', [7, 0, 0, 1]);
+		Server::get(ISession::class)->set('OC_Version', [7, 0, 0, 1]);
 		self::invokePrivate(new Util, 'needUpgradeCache', [null]);
 
 		$this->assertTrue(Util::needUpgrade());
 
 		$config->setSystemValue('version', $oldConfigVersion);
-		\OC::$server->getSession()->set('OC_Version', $oldSessionVersion);
+		Server::get(ISession::class)->set('OC_Version', $oldSessionVersion);
 		self::invokePrivate(new Util, 'needUpgradeCache', [null]);
 
 		$this->assertFalse(Util::needUpgrade());
 	}
 
 	public function testCheckDataDirectoryValidity(): void {
-		$dataDir = \OC::$server->getTempManager()->getTemporaryFolder();
+		$dataDir = Server::get(ITempManager::class)->getTemporaryFolder();
 		touch($dataDir . '/.ncdata');
 		$errors = \OC_Util::checkDataDirectoryValidity($dataDir);
 		$this->assertEmpty($errors);
-		\OCP\Files::rmdirr($dataDir);
+		Files::rmdirr($dataDir);
 
-		$dataDir = \OC::$server->getTempManager()->getTemporaryFolder();
+		$dataDir = Server::get(ITempManager::class)->getTemporaryFolder();
 		// no touch
 		$errors = \OC_Util::checkDataDirectoryValidity($dataDir);
 		$this->assertNotEmpty($errors);
-		\OCP\Files::rmdirr($dataDir);
+		Files::rmdirr($dataDir);
 
 		$errors = \OC_Util::checkDataDirectoryValidity('relative/path');
 		$this->assertNotEmpty($errors);
 	}
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -175,6 +176,7 @@ class UtilTest extends \Test\TestCase {
 		self::invokePrivate(Util::class, 'scripts', [[]]);
 		self::invokePrivate(Util::class, 'scriptDeps', [[]]);
 	}
+	#[\Override]
 	protected function tearDown(): void {
 		parent::tearDown();
 
@@ -333,5 +335,116 @@ class UtilTest extends \Test\TestCase {
 		$this->assertEquals('ABC', Util::shortenMultibyteString('ABCDEF', 3));
 		// each of the characters is 12 bytes
 		$this->assertEquals('🙈', Util::shortenMultibyteString('🙈🙊🙉', 16, 2));
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider('humanFileSizeProvider')]
+	public function testHumanFileSize($expected, $input): void {
+		$result = Util::humanFileSize($input);
+		$this->assertEquals($expected, $result);
+	}
+
+	public static function humanFileSizeProvider(): array {
+		return [
+			['0 B', 0],
+			['1 KB', 1024],
+			['9.5 MB', 10000000],
+			['1.3 GB', 1395864371],
+			['465.7 GB', 500000000000],
+			['454.7 TB', 500000000000000],
+			['444.1 PB', 500000000000000000],
+		];
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider('providesComputerFileSize')]
+	public function testComputerFileSize($expected, $input): void {
+		$result = Util::computerFileSize($input);
+		$this->assertEquals($expected, $result);
+	}
+
+	public static function providesComputerFileSize(): array {
+		return [
+			[0.0, '0 B'],
+			[1024.0, '1 KB'],
+			[1395864371.0, '1.3 GB'],
+			[9961472.0, '9.5 MB'],
+			[500041567437.0, '465.7 GB'],
+			[false, '12 GB etfrhzui']
+		];
+	}
+
+	public function testMb_array_change_key_case(): void {
+		$arrayStart = [
+			'Foo' => 'bar',
+			'Bar' => 'foo',
+		];
+		$arrayResult = [
+			'foo' => 'bar',
+			'bar' => 'foo',
+		];
+		$result = Util::mb_array_change_key_case($arrayStart);
+		$expected = $arrayResult;
+		$this->assertEquals($result, $expected);
+
+		$arrayStart = [
+			'foo' => 'bar',
+			'bar' => 'foo',
+		];
+		$arrayResult = [
+			'FOO' => 'bar',
+			'BAR' => 'foo',
+		];
+		$result = Util::mb_array_change_key_case($arrayStart, MB_CASE_UPPER);
+		$expected = $arrayResult;
+		$this->assertEquals($result, $expected);
+	}
+
+	public static function sanitizeProvider(): array {
+		return [
+			// Basic spaces and line controls
+			['Hello World', 'Hello World'],
+			['  Hello   World  ', 'Hello World'],
+			["Hello\t World \nAgain", 'Hello World Again'],
+			["Hello\rWorld", 'HelloWorld'],
+			["Hello\r\nWorld", 'HelloWorld'],
+			["Hello\u{200B}World", 'HelloWorld'], // zero-width space removed
+			["Hello\t\n\r  World", 'Hello World'],
+
+			// Unicode, emoji, and CJK
+			['テスト 😃 💬', 'テスト 😃 💬'],
+			['中文測試 ✅', '中文測試 ✅'],
+			['Русский текст 😁', 'Русский текст 😁'],
+			['Café crème ☕', 'Café crème ☕'],
+
+			// Punctuation and filename-like
+			['Hello-World_123.', 'Hello-World_123.'],
+			['File.name, with commas', 'File.name, with commas'],
+			['Smile — dash', 'Smile — dash'],
+			['Invalid:/\\?%*|<>name', 'Invalid:/\\?%*|<>name'], // kept as is
+			['test@example.com', 'test@example.com'],
+
+			// Control and invisible chars
+			["Bad\0Name", 'BadName'],
+			["Hello\u{0007}World", 'HelloWorld'],
+			["Line\r\nbreaks", 'Linebreaks'],
+			["\x1F Hidden control", 'Hidden control'],
+
+			// Whitespace and normalization
+			[" Multiple   spaces\t and \nnewlines ", 'Multiple spaces and newlines'],
+			["No-break\u{00A0}space", 'No-break space'], // NBSP normalized
+			["Zero\u{2003}width\u{2009}spaces", 'Zero width spaces'], // various spaces
+
+			// Complex mixes
+			['テスト 💬.png', 'テスト 💬.png'],
+			['  Mix 😎 emojis 🎉 and 123 numbers  ', 'Mix 😎 emojis 🎉 and 123 numbers'],
+			["Hello   \u{200B}\n   World", 'Hello World'],
+			['Path ../etc/passwd', 'Path ../etc/passwd'],
+			['Symbols! @ # % ^ & * ( )', 'Symbols! @ # % ^ & * ( )'],
+			['Special chars <script>', 'Special chars <script>'],
+		];
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider('sanitizeProvider')]
+	public function testSanitizeWordsAndEmojis(string $input, string $expected): void {
+		$this->assertSame($expected, Util::sanitizeWordsAndEmojis($input));
 	}
 }

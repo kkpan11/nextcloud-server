@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2017 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
@@ -9,7 +10,6 @@ namespace Tests\Core\Controller;
 use OC\Core\Controller\AutoCompleteController;
 use OCP\Collaboration\AutoComplete\IManager;
 use OCP\Collaboration\Collaborators\ISearch;
-use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
@@ -19,11 +19,10 @@ class AutoCompleteControllerTest extends TestCase {
 	protected $collaboratorSearch;
 	/** @var IManager|MockObject */
 	protected $autoCompleteManager;
-	/** @var IEventDispatcher|MockObject */
-	protected $dispatcher;
 	/** @var AutoCompleteController */
 	protected $controller;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -31,14 +30,12 @@ class AutoCompleteControllerTest extends TestCase {
 		$request = $this->createMock(IRequest::class);
 		$this->collaboratorSearch = $this->createMock(ISearch::class);
 		$this->autoCompleteManager = $this->createMock(IManager::class);
-		$this->dispatcher = $this->createMock(IEventDispatcher::class);
 
 		$this->controller = new AutoCompleteController(
 			'core',
 			$request,
 			$this->collaboratorSearch,
 			$this->autoCompleteManager,
-			$this->dispatcher
 		);
 	}
 
@@ -153,12 +150,10 @@ class AutoCompleteControllerTest extends TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider searchDataProvider
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('searchDataProvider')]
 	public function testGet(array $searchResults, array $expected, string $searchTerm, ?string $itemType, ?string $itemId, ?string $sorter): void {
 		$this->collaboratorSearch->expects($this->once())
-			->method('search')
+			->method('filteredSearch')
 			->willReturn([$searchResults, false]);
 
 		$runSorterFrequency = $sorter === null ? $this->never() : $this->once();

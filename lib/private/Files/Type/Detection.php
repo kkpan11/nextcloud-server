@@ -6,12 +6,14 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OC\Files\Type;
 
 use OCP\Files\IMimeTypeDetector;
 use OCP\IBinaryFinder;
 use OCP\ITempManager;
 use OCP\IURLGenerator;
+use OCP\Server;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -22,8 +24,9 @@ use Psr\Log\LoggerInterface;
  * @package OC\Files\Type
  */
 class Detection implements IMimeTypeDetector {
-	private const CUSTOM_MIMETYPEMAPPING = 'mimetypemapping.json';
-	private const CUSTOM_MIMETYPEALIASES = 'mimetypealiases.json';
+	private const string CUSTOM_MIMETYPEMAPPING = 'mimetypemapping.json';
+	private const string CUSTOM_MIMETYPEALIASES = 'mimetypealiases.json';
+	private const string CUSTOM_MIMETYPENAMES = 'mimetypenames.json';
 
 	/** @var array<list{string, string|null}> */
 	protected array $mimeTypes = [];
@@ -32,6 +35,8 @@ class Detection implements IMimeTypeDetector {
 	protected array $mimeTypeIcons = [];
 	/** @var array<string,string> */
 	protected array $mimeTypeAlias = [];
+	/** @var array<string,string> */
+	protected array $mimeTypesNames = [];
 
 	public function __construct(
 		private IURLGenerator $urlGenerator,
@@ -52,7 +57,8 @@ class Detection implements IMimeTypeDetector {
 	 * @param string $mimeType
 	 * @param string|null $secureMimeType
 	 */
-	public function registerType(string $extension,
+	public function registerType(
+		string $extension,
 		string $mimeType,
 		?string $secureMimeType = null): void {
 		// Make sure the extension is a string
@@ -93,7 +99,7 @@ class Detection implements IMimeTypeDetector {
 		if (file_exists($this->customConfigDir . '/' . $fileName)) {
 			$custom = json_decode(file_get_contents($this->customConfigDir . '/' . $fileName), true);
 			if (json_last_error() === JSON_ERROR_NONE) {
-				$definitions = array_merge($definitions, $custom);
+				$definitions = array_replace($definitions, $custom);
 			} else {
 				$this->logger->warning('Failed to parse ' . $fileName . ': ' . json_last_error_msg());
 			}
@@ -116,6 +122,7 @@ class Detection implements IMimeTypeDetector {
 	/**
 	 * @return array<string,string>
 	 */
+	#[\Override]
 	public function getAllAliases(): array {
 		$this->loadAliases();
 		return $this->mimeTypeAlias;
@@ -144,9 +151,30 @@ class Detection implements IMimeTypeDetector {
 	/**
 	 * @return array<list{string, string|null}>
 	 */
+	#[\Override]
 	public function getAllMappings(): array {
 		$this->loadMappings();
 		return $this->mimeTypes;
+	}
+
+	private function loadNamings(): void {
+		if (!empty($this->mimeTypesNames)) {
+			return;
+		}
+
+		$mimeTypeMapping = json_decode(file_get_contents($this->defaultConfigDir . '/mimetypenames.dist.json'), true);
+		$mimeTypeMapping = $this->loadCustomDefinitions(self::CUSTOM_MIMETYPENAMES, $mimeTypeMapping);
+
+		$this->mimeTypesNames = $mimeTypeMapping;
+	}
+
+	/**
+	 * @return array<string,string>
+	 */
+	#[\Override]
+	public function getAllNamings(): array {
+		$this->loadNamings();
+		return $this->mimeTypesNames;
 	}
 
 	/**
@@ -155,6 +183,7 @@ class Detection implements IMimeTypeDetector {
 	 * @param string $path
 	 * @return string
 	 */
+	#[\Override]
 	public function detectPath($path): string {
 		$this->loadMappings();
 
@@ -187,6 +216,7 @@ class Detection implements IMimeTypeDetector {
 	 * @return string
 	 * @since 18.0.0
 	 */
+	#[\Override]
 	public function detectContent(string $path): string {
 		$this->loadMappings();
 
@@ -195,14 +225,10 @@ class Detection implements IMimeTypeDetector {
 			return 'httpd/unix-directory';
 		}
 
-		if (function_exists('finfo_open')
-			&& function_exists('finfo_file')
-			&& $finfo = finfo_open(FILEINFO_MIME)) {
-			$info = @finfo_file($finfo, $path);
-			finfo_close($finfo);
-			if ($info) {
-				$info = strtolower($info);
-				$mimeType = str_contains($info, ';') ? substr($info, 0, strpos($info, ';')) : $info;
+		if (class_exists(finfo::class)) {
+			$finfo = new finfo(FILEINFO_MIME_TYPE);
+			$mimeType = @$finfo->file($path);
+			if ($mimeType) {
 				$mimeType = $this->getSecureMimeType($mimeType);
 				if ($mimeType !== 'application/octet-stream') {
 					return $mimeType;
@@ -218,7 +244,7 @@ class Detection implements IMimeTypeDetector {
 		if (function_exists('mime_content_type')) {
 			// use mime magic extension if available
 			$mimeType = mime_content_type($path);
-			if ($mimeType !== false) {
+			if ($mimeType) {
 				$mimeType = $this->getSecureMimeType($mimeType);
 				if ($mimeType !== 'application/octet-stream') {
 					return $mimeType;
@@ -226,7 +252,7 @@ class Detection implements IMimeTypeDetector {
 			}
 		}
 
-		$binaryFinder = \OCP\Server::get(IBinaryFinder::class);
+		$binaryFinder = Server::get(IBinaryFinder::class);
 		$program = $binaryFinder->findBinaryPath('file');
 		if ($program !== false) {
 			// it looks like we have a 'file' command,
@@ -236,7 +262,7 @@ class Detection implements IMimeTypeDetector {
 			if ($fp !== false) {
 				$mimeType = fgets($fp);
 				pclose($fp);
-				if ($mimeType !== false) {
+				if ($mimeType) {
 					//trim the newline
 					$mimeType = trim($mimeType);
 					$mimeType = $this->getSecureMimeType($mimeType);
@@ -254,6 +280,7 @@ class Detection implements IMimeTypeDetector {
 	 * @param string $path
 	 * @return string
 	 */
+	#[\Override]
 	public function detect($path): string {
 		$mimeType = $this->detectPath($path);
 
@@ -270,20 +297,23 @@ class Detection implements IMimeTypeDetector {
 	 * @param string $data
 	 * @return string
 	 */
+	#[\Override]
 	public function detectString($data): string {
-		if (function_exists('finfo_open') && function_exists('finfo_file')) {
-			$finfo = finfo_open(FILEINFO_MIME);
-			$info = finfo_buffer($finfo, $data);
-			return str_contains($info, ';') ? substr($info, 0, strpos($info, ';')) : $info;
+		if (class_exists(finfo::class)) {
+			$finfo = new finfo(FILEINFO_MIME_TYPE);
+			$mimeType = $finfo->buffer($data);
+			if ($mimeType) {
+				return $mimeType;
+			}
 		}
 
-		$tmpFile = \OCP\Server::get(ITempManager::class)->getTemporaryFile();
+		$tmpFile = Server::get(ITempManager::class)->getTemporaryFile();
 		$fh = fopen($tmpFile, 'wb');
 		fwrite($fh, $data, 8024);
 		fclose($fh);
-		$mime = $this->detect($tmpFile);
+		$mimeType = $this->detect($tmpFile);
 		unset($tmpFile);
-		return $mime;
+		return $mimeType;
 	}
 
 	/**
@@ -292,6 +322,7 @@ class Detection implements IMimeTypeDetector {
 	 * @param string $mimeType
 	 * @return string
 	 */
+	#[\Override]
 	public function getSecureMimeType($mimeType): string {
 		$this->loadMappings();
 
@@ -303,6 +334,7 @@ class Detection implements IMimeTypeDetector {
 	 * @param string $mimeType the MIME type
 	 * @return string the url
 	 */
+	#[\Override]
 	public function mimeTypeIcon($mimeType): string {
 		$this->loadAliases();
 

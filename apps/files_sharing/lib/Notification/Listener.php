@@ -6,6 +6,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2019 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OCA\Files_Sharing\Notification;
 
 use OCP\IGroup;
@@ -40,8 +41,8 @@ class Listener {
 			$group = $this->groupManager->get($share->getSharedWith());
 
 			foreach ($group->getUsers() as $user) {
-				if ($user->getUID() === $share->getShareOwner() ||
-					$user->getUID() === $share->getSharedBy()) {
+				if ($user->getUID() === $share->getShareOwner()
+					|| $user->getUID() === $share->getSharedBy()) {
 					continue;
 				}
 
@@ -72,8 +73,8 @@ class Listener {
 					continue;
 				}
 
-				if ($user->getUID() === $share->getShareOwner() ||
-					$user->getUID() === $share->getSharedBy()) {
+				if ($user->getUID() === $share->getShareOwner()
+					|| $user->getUID() === $share->getSharedBy()) {
 					continue;
 				}
 

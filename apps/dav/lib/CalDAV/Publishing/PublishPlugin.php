@@ -1,11 +1,15 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OCA\DAV\CalDAV\Publishing;
 
+use OCA\DAV\CalDAV\CalDavBackend;
 use OCA\DAV\CalDAV\Calendar;
+use OCA\DAV\CalDAV\CalendarHome;
 use OCA\DAV\CalDAV\Publishing\Xml\Publisher;
 use OCP\AppFramework\Http;
 use OCP\IConfig;
@@ -55,6 +59,7 @@ class PublishPlugin extends ServerPlugin {
 	 *
 	 * @return string[]
 	 */
+	#[\Override]
 	public function getFeatures() {
 		// May have to be changed to be detected
 		return ['oc-calendar-publishing', 'calendarserver-sharing'];
@@ -68,6 +73,7 @@ class PublishPlugin extends ServerPlugin {
 	 *
 	 * @return string
 	 */
+	#[\Override]
 	public function getPluginName() {
 		return 'oc-calendar-publishing';
 	}
@@ -82,6 +88,7 @@ class PublishPlugin extends ServerPlugin {
 	 *
 	 * @param Server $server
 	 */
+	#[\Override]
 	public function initialize(Server $server) {
 		$this->server = $server;
 
@@ -90,6 +97,20 @@ class PublishPlugin extends ServerPlugin {
 	}
 
 	public function propFind(PropFind $propFind, INode $node) {
+		if ($node instanceof CalendarHome && $propFind->getDepth() === 1) {
+			$backend = $node->getCalDAVBackend();
+			if ($backend instanceof CalDavBackend) {
+				$calendars = array_filter(
+					$node->getChildren(),
+					static fn ($child) => $child instanceof Calendar,
+				);
+				$resourceIds = array_map(
+					static fn (Calendar $calendar) => $calendar->getResourceId(),
+					$calendars,
+				);
+				$backend->preloadPublishStatuses($resourceIds);
+			}
+		}
 		if ($node instanceof Calendar) {
 			$propFind->handle('{' . self::NS_CALENDARSERVER . '}publish-url', function () use ($node) {
 				if ($node->getPublishStatus()) {
@@ -153,7 +174,6 @@ class PublishPlugin extends ServerPlugin {
 		$this->server->xml->parse($requestBody, $request->getUrl(), $documentType);
 
 		switch ($documentType) {
-
 			case '{' . self::NS_CALENDARSERVER . '}publish-calendar':
 
 				// We can only deal with IShareableCalendar objects
@@ -188,7 +208,6 @@ class PublishPlugin extends ServerPlugin {
 
 				// Breaking the event chain
 				return false;
-
 			case '{' . self::NS_CALENDARSERVER . '}unpublish-calendar':
 
 				// We can only deal with IShareableCalendar objects
@@ -222,7 +241,6 @@ class PublishPlugin extends ServerPlugin {
 
 				// Breaking the event chain
 				return false;
-
 		}
 	}
 }

@@ -14,12 +14,13 @@ use OC\User\Session;
 use OCP\IConfig;
 use PHPUnit\Framework\MockObject\MockObject;
 
-class FinishRememberedLoginCommandTest extends ALoginCommandTest {
+class FinishRememberedLoginCommandTest extends ALoginTestCommand {
 	/** @var Session|MockObject */
 	private $userSession;
 	/** @var IConfig|MockObject */
 	private $config;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 

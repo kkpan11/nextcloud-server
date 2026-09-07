@@ -1,4 +1,6 @@
 <?php
+
+declare(strict_types=1);
 /**
  * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
@@ -7,34 +9,30 @@
 
 namespace OCA\Files_Trashbin\Tests\BackgroundJob;
 
+use OCA\Files_Trashbin\AppInfo\Application;
 use OCA\Files_Trashbin\BackgroundJob\ExpireTrash;
 use OCA\Files_Trashbin\Expiration;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
+use OCP\Files\IRootFolder;
+use OCP\Files\ISetupManager;
 use OCP\IAppConfig;
 use OCP\IUserManager;
+use OCP\Lock\ILockingProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 class ExpireTrashTest extends TestCase {
-	/** @var IAppConfig&MockObject */
-	private $appConfig;
-
-	/** @var IUserManager&MockObject */
-	private $userManager;
-
-	/** @var Expiration&MockObject */
-	private $expiration;
-
-	/** @var IJobList&MockObject */
-	private $jobList;
-
-	/** @var LoggerInterface&MockObject */
-	private $logger;
-
-	/** @var ITimeFactory&MockObject */
-	private $time;
+	private IAppConfig&MockObject $appConfig;
+	private IUserManager&MockObject $userManager;
+	private Expiration&MockObject $expiration;
+	private IJobList&MockObject $jobList;
+	private LoggerInterface&MockObject $logger;
+	private ITimeFactory&MockObject $time;
+	private ISetupManager&MockObject $setupManager;
+	private ILockingProvider&MockObject $lockingProvider;
+	private IRootFolder&MockObject $rootFolder;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -44,6 +42,9 @@ class ExpireTrashTest extends TestCase {
 		$this->expiration = $this->createMock(Expiration::class);
 		$this->jobList = $this->createMock(IJobList::class);
 		$this->logger = $this->createMock(LoggerInterface::class);
+		$this->setupManager = $this->createMock(ISetupManager::class);
+		$this->lockingProvider = $this->createMock(ILockingProvider::class);
+		$this->rootFolder = $this->createMock(IRootFolder::class);
 
 		$this->time = $this->createMock(ITimeFactory::class);
 		$this->time->method('getTime')
@@ -56,25 +57,43 @@ class ExpireTrashTest extends TestCase {
 	}
 
 	public function testConstructAndRun(): void {
-		$this->appConfig->method('getValueString')
-			->with('files_trashbin', 'background_job_expire_trash', 'yes')
-			->willReturn('yes');
+		$this->appConfig->method('getValueBool')
+			->with(Application::APP_ID, ExpireTrash::TOGGLE_CONFIG_KEY_NAME, true)
+			->willReturn(true);
 		$this->appConfig->method('getValueInt')
-			->with('files_trashbin', 'background_job_expire_trash_offset', 0)
+			->with(Application::APP_ID, ExpireTrash::OFFSET_CONFIG_KEY_NAME, 0)
 			->willReturn(0);
 
-		$job = new ExpireTrash($this->appConfig, $this->userManager, $this->expiration, $this->logger, $this->time);
+		$job = new ExpireTrash(
+			$this->appConfig,
+			$this->userManager,
+			$this->expiration,
+			$this->logger,
+			$this->setupManager,
+			$this->lockingProvider,
+			$this->rootFolder,
+			$this->time,
+		);
 		$job->start($this->jobList);
 	}
 
 	public function testBackgroundJobDeactivated(): void {
-		$this->appConfig->method('getValueString')
-			->with('files_trashbin', 'background_job_expire_trash', 'yes')
-			->willReturn('no');
+		$this->appConfig->method('getValueBool')
+			->with(Application::APP_ID, ExpireTrash::TOGGLE_CONFIG_KEY_NAME, true)
+			->willReturn(false);
 		$this->expiration->expects($this->never())
 			->method('getMaxAgeAsTimestamp');
 
-		$job = new ExpireTrash($this->appConfig, $this->userManager, $this->expiration, $this->logger, $this->time);
+		$job = new ExpireTrash(
+			$this->appConfig,
+			$this->userManager,
+			$this->expiration,
+			$this->logger,
+			$this->setupManager,
+			$this->lockingProvider,
+			$this->rootFolder,
+			$this->time,
+		);
 		$job->start($this->jobList);
 	}
 }

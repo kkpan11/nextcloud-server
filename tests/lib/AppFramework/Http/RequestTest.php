@@ -1,9 +1,11 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace Test\AppFramework\Http;
 
 use OC\AppFramework\Http\Request;
@@ -27,6 +29,7 @@ class RequestTest extends \Test\TestCase {
 	/** @var CsrfTokenManager */
 	protected $csrfTokenManager;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -42,6 +45,7 @@ class RequestTest extends \Test\TestCase {
 			->getMock();
 	}
 
+	#[\Override]
 	protected function tearDown(): void {
 		stream_wrapper_unregister('fakeinput');
 		parent::tearDown();
@@ -98,8 +102,6 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('Johnny Weissmüller', $request->{'name'});
 	}
 
-
-
 	public function testImmutableArrayAccess(): void {
 		$this->expectException(\RuntimeException::class);
 
@@ -119,7 +121,6 @@ class RequestTest extends \Test\TestCase {
 		$request['nickname'] = 'Janey';
 	}
 
-
 	public function testImmutableMagicAccess(): void {
 		$this->expectException(\RuntimeException::class);
 
@@ -138,7 +139,6 @@ class RequestTest extends \Test\TestCase {
 
 		$request->{'nickname'} = 'Janey';
 	}
-
 
 	public function testGetTheMethodRight(): void {
 		$this->expectException(\LogicException::class);
@@ -259,9 +259,7 @@ class RequestTest extends \Test\TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider dataNotJsonData
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataNotJsonData')]
 	public function testNotJsonPost(string $testData): void {
 		global $data;
 		$data = $testData;
@@ -521,7 +519,6 @@ class RequestTest extends \Test\TestCase {
 		$this->fail('Expected LogicException.');
 	}
 
-
 	public function testSetUrlParameters(): void {
 		$vars = [
 			'post' => [],
@@ -708,9 +705,7 @@ class RequestTest extends \Test\TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider dataGetRemoteAddress
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataGetRemoteAddress')]
 	public function testGetRemoteAddress(array $headers, array $trustedProxies, array $forwardedForHeaders, string $expected): void {
 		$this->config
 			->method('getSystemValue')
@@ -754,16 +749,15 @@ class RequestTest extends \Test\TestCase {
 			['InvalidProvider/1.1', 'HTTP/1.1'],
 			[null, 'HTTP/1.1'],
 			['', 'HTTP/1.1'],
-
 		];
 	}
 
 	/**
-	 * @dataProvider dataHttpProtocol
 	 *
 	 * @param mixed $input
 	 * @param string $expected
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataHttpProtocol')]
 	public function testGetHttpProtocol($input, $expected): void {
 		$request = new Request(
 			[
@@ -780,12 +774,12 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame($expected, $request->getHttpProtocol());
 	}
 
-	public function testGetServerProtocolWithOverride(): void {
+	public function testGetServerProtocolWithOverrideValid(): void {
 		$this->config
 			->expects($this->exactly(3))
 			->method('getSystemValueString')
 			->willReturnMap([
-				['overwriteprotocol', '', 'customProtocol'],
+				['overwriteprotocol', '', 'HTTPS'], // should be automatically lowercased
 				['overwritecondaddr', '', ''],
 			]);
 
@@ -797,7 +791,27 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('customProtocol', $request->getServerProtocol());
+		$this->assertSame('https', $request->getServerProtocol());
+	}
+
+	public function testGetServerProtocolWithOverrideInValid(): void {
+		$this->config
+			->expects($this->exactly(3))
+			->method('getSystemValueString')
+			->willReturnMap([
+				['overwriteprotocol', '', 'bogusProtocol'], // should trigger fallback to http
+				['overwritecondaddr', '', ''],
+			]);
+
+		$request = new Request(
+			[],
+			$this->requestId,
+			$this->config,
+			$this->csrfTokenManager,
+			$this->stream
+		);
+
+		$this->assertSame('http', $request->getServerProtocol());
 	}
 
 	public function testGetServerProtocolWithProtoValid(): void {
@@ -835,7 +849,6 @@ class RequestTest extends \Test\TestCase {
 			$this->csrfTokenManager,
 			$this->stream
 		);
-
 
 		$this->assertSame('https', $requestHttps->getServerProtocol());
 		$this->assertSame('http', $requestHttp->getServerProtocol());
@@ -949,11 +962,11 @@ class RequestTest extends \Test\TestCase {
 	}
 
 	/**
-	 * @dataProvider dataUserAgent
 	 * @param string $testAgent
 	 * @param array $userAgent
 	 * @param bool $matches
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataUserAgent')]
 	public function testUserAgent($testAgent, $userAgent, $matches): void {
 		$request = new Request(
 			[
@@ -971,11 +984,11 @@ class RequestTest extends \Test\TestCase {
 	}
 
 	/**
-	 * @dataProvider dataUserAgent
 	 * @param string $testAgent
 	 * @param array $userAgent
 	 * @param bool $matches
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataUserAgent')]
 	public function testUndefinedUserAgent($testAgent, $userAgent, $matches): void {
 		$request = new Request(
 			[],
@@ -1153,11 +1166,11 @@ class RequestTest extends \Test\TestCase {
 	}
 
 	/**
-	 * @dataProvider dataMatchClientVersion
 	 * @param string $testAgent
 	 * @param string $userAgent
 	 * @param string $version
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataMatchClientVersion')]
 	public function testMatchClientVersion(string $testAgent, string $userAgent, string $version): void {
 		preg_match($userAgent, $testAgent, $matches);
 
@@ -1372,9 +1385,7 @@ class RequestTest extends \Test\TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider dataGetServerHostTrustedDomain
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataGetServerHostTrustedDomain')]
 	public function testGetServerHostTrustedDomain(string $expected, $trustedDomain): void {
 		$this->config
 			->method('getSystemValue')
@@ -1441,7 +1452,6 @@ class RequestTest extends \Test\TestCase {
 		$this->assertSame('www.owncloud.org', self::invokePrivate($request, 'getOverwriteHost'));
 	}
 
-
 	public function testGetPathInfoNotProcessible(): void {
 		$this->expectException(\Exception::class);
 		$this->expectExceptionMessage('The requested uri(/foo.php) cannot be processed by the script \'/var/www/index.php\')');
@@ -1461,7 +1471,6 @@ class RequestTest extends \Test\TestCase {
 
 		$request->getPathInfo();
 	}
-
 
 	public function testGetRawPathInfoNotProcessible(): void {
 		$this->expectException(\Exception::class);
@@ -1484,11 +1493,11 @@ class RequestTest extends \Test\TestCase {
 	}
 
 	/**
-	 * @dataProvider dataGenericPathInfo
 	 * @param string $requestUri
 	 * @param string $scriptName
 	 * @param string $expected
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataGenericPathInfo')]
 	public function testGetPathInfoWithoutSetEnvGeneric($requestUri, $scriptName, $expected): void {
 		$request = new Request(
 			[
@@ -1507,11 +1516,11 @@ class RequestTest extends \Test\TestCase {
 	}
 
 	/**
-	 * @dataProvider dataGenericPathInfo
 	 * @param string $requestUri
 	 * @param string $scriptName
 	 * @param string $expected
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataGenericPathInfo')]
 	public function testGetRawPathInfoWithoutSetEnvGeneric($requestUri, $scriptName, $expected): void {
 		$request = new Request(
 			[
@@ -1530,11 +1539,11 @@ class RequestTest extends \Test\TestCase {
 	}
 
 	/**
-	 * @dataProvider dataRawPathInfo
 	 * @param string $requestUri
 	 * @param string $scriptName
 	 * @param string $expected
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataRawPathInfo')]
 	public function testGetRawPathInfoWithoutSetEnv($requestUri, $scriptName, $expected): void {
 		$request = new Request(
 			[
@@ -1553,11 +1562,11 @@ class RequestTest extends \Test\TestCase {
 	}
 
 	/**
-	 * @dataProvider dataPathInfo
 	 * @param string $requestUri
 	 * @param string $scriptName
 	 * @param string $expected
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataPathInfo')]
 	public function testGetPathInfoWithoutSetEnv($requestUri, $scriptName, $expected): void {
 		$request = new Request(
 			[
@@ -1599,6 +1608,68 @@ class RequestTest extends \Test\TestCase {
 		];
 	}
 
+	public function testGetRawPathInfoWithoutScriptName(): void {
+		$request = new Request(
+			[
+				'server' => [
+					'REQUEST_URI' => '/index.php/apps/files/',
+				]
+			],
+			$this->requestId,
+			$this->config,
+			$this->csrfTokenManager,
+			$this->stream
+		);
+
+		$this->assertSame('index.php/apps/files/', $request->getRawPathInfo());
+	}
+
+	public function testGetPathInfoWithoutScriptName(): void {
+		$request = new Request(
+			[
+				'server' => [
+					'REQUEST_URI' => '/index.php/apps/files/',
+				]
+			],
+			$this->requestId,
+			$this->config,
+			$this->csrfTokenManager,
+			$this->stream
+		);
+
+		$this->assertSame('index.php/apps/files/', $request->getPathInfo());
+	}
+
+	public function testGetRawPathInfoWithoutScriptNameRoot(): void {
+		$request = new Request(
+			[
+				'server' => [
+					'REQUEST_URI' => '/',
+				]
+			],
+			$this->requestId,
+			$this->config,
+			$this->csrfTokenManager,
+			$this->stream
+		);
+
+		$this->assertSame('', $request->getRawPathInfo());
+	}
+
+	public function testGetRawPathInfoWithoutScriptNameOrRequestUri(): void {
+		$request = new Request(
+			[
+				'server' => []
+			],
+			$this->requestId,
+			$this->config,
+			$this->csrfTokenManager,
+			$this->stream
+		);
+
+		$this->assertSame('', $request->getRawPathInfo());
+	}
+
 	public function testGetRequestUriWithoutOverwrite(): void {
 		$this->config
 			->expects($this->once())
@@ -1628,9 +1699,7 @@ class RequestTest extends \Test\TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider dataGetRequestUriWithOverwrite
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataGetRequestUriWithOverwrite')]
 	public function testGetRequestUriWithOverwrite($expectedUri, $overwriteWebRoot, $overwriteCondAddr, $remoteAddr = ''): void {
 		$this->config
 			->expects($this->exactly(2))
@@ -2183,9 +2252,7 @@ class RequestTest extends \Test\TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider dataInvalidToken
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataInvalidToken')]
 	public function testPassesCSRFCheckWithInvalidToken(string $invalidToken): void {
 		/** @var Request $request */
 		$request = $this->getMockBuilder(Request::class)

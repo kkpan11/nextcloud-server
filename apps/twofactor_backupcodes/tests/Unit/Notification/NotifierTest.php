@@ -6,6 +6,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2018 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OCA\TwoFactorBackupCodes\Tests\Unit\Notification;
 
 use OCA\TwoFactorBackupCodes\Notifications\Notifier;
@@ -17,15 +18,10 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
 class NotifierTest extends TestCase {
-	/** @var Notifier */
-	protected $notifier;
-
-	/** @var IFactory|MockObject */
-	protected $factory;
-	/** @var IURLGenerator|MockObject */
-	protected $url;
-	/** @var IL10N|MockObject */
-	protected $l;
+	protected IFactory&MockObject $factory;
+	protected IURLGenerator&MockObject $url;
+	protected IL10N&MockObject $l;
+	protected Notifier $notifier;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -48,11 +44,10 @@ class NotifierTest extends TestCase {
 		);
 	}
 
-
 	public function testPrepareWrongApp(): void {
 		$this->expectException(\InvalidArgumentException::class);
 
-		/** @var INotification|\PHPUnit\Framework\MockObject\MockObject $notification */
+		/** @var INotification|MockObject $notification */
 		$notification = $this->createMock(INotification::class);
 		$notification->expects($this->once())
 			->method('getApp')
@@ -63,11 +58,10 @@ class NotifierTest extends TestCase {
 		$this->notifier->prepare($notification, 'en');
 	}
 
-
 	public function testPrepareWrongSubject(): void {
 		$this->expectException(\InvalidArgumentException::class);
 
-		/** @var INotification|\PHPUnit\Framework\MockObject\MockObject $notification */
+		/** @var INotification|MockObject $notification */
 		$notification = $this->createMock(INotification::class);
 		$notification->expects($this->once())
 			->method('getApp')
@@ -80,7 +74,7 @@ class NotifierTest extends TestCase {
 	}
 
 	public function testPrepare(): void {
-		/** @var INotification|\PHPUnit\Framework\MockObject\MockObject $notification */
+		/** @var INotification&MockObject $notification */
 		$notification = $this->createMock(INotification::class);
 
 		$notification->expects($this->once())

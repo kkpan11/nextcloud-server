@@ -5,6 +5,7 @@
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OC\DB;
 
 use Doctrine\DBAL\Exception;
@@ -16,37 +17,19 @@ use OC\DB\Exceptions\DbalException;
  * handled by the database abstraction layer.
  */
 class Adapter {
-	/**
-	 * @var \OC\DB\Connection $conn
-	 */
-	protected $conn;
-
-	public function __construct($conn) {
-		$this->conn = $conn;
+	public function __construct(
+		protected readonly Connection $conn,
+	) {
 	}
 
 	/**
 	 * @param string $table name
 	 *
-	 * @return int id of last insert statement, 0 in case there was no INSERT before or it failed to get the ID
+	 * @return int id of last insert statement
 	 * @throws Exception
 	 */
-	public function lastInsertId($table, bool $allowRetry = true): int {
-		$return = $this->conn->realLastInsertId($table);
-		if ($return === 0 && $allowRetry) {
-			/**
-			 * During a reconnect we are losing the connection and when the
-			 * realLastInsertId call is the one triggering the reconnect, it
-			 * does not return the ID. But inside the reconnect, we were able
-			 * to save the last insert id, so calling it a second time is going
-			 * to be successful.
-			 * We can not return the result on the initial call, as we are already
-			 * way deeper in the stack performing the actual database query on
-			 * the doctrine driver.
-			 */
-			return $this->lastInsertId($table, false);
-		}
-		return $return;
+	public function lastInsertId($table) {
+		return (int)$this->conn->realLastInsertId($table);
 	}
 
 	/**
@@ -65,7 +48,7 @@ class Adapter {
 	 */
 	public function lockTable(string $tableName) {
 		$this->conn->beginTransaction();
-		$this->conn->executeUpdate('LOCK TABLE `' . $tableName . '` IN EXCLUSIVE MODE');
+		$this->conn->executeStatement('LOCK TABLE `' . $tableName . '` IN EXCLUSIVE MODE');
 	}
 
 	/**
@@ -117,7 +100,7 @@ class Adapter {
 		$query .= ' HAVING COUNT(*) = 0';
 
 		try {
-			return $this->conn->executeUpdate($query, $inserts);
+			return $this->conn->executeStatement($query, $inserts);
 		} catch (UniqueConstraintViolationException $e) {
 			// This exception indicates a concurrent insert happened between
 			// the insert and the sub-select in the insert, which is safe to ignore.

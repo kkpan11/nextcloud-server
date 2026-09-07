@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
@@ -24,6 +25,7 @@ class FileTest extends TestCase {
 	/** @var \Symfony\Component\Console\Command\Command */
 	protected $command;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -71,9 +73,7 @@ class FileTest extends TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider changeRotateSizeProvider
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('changeRotateSizeProvider')]
 	public function testChangeRotateSize($optionValue, $configValue): void {
 		$this->config->method('getSystemValue')->willReturnArgument(1);
 		$this->consoleInput->method('getOption')
@@ -103,7 +103,7 @@ class FileTest extends TestCase {
 		];
 		$this->consoleOutput->expects($this->exactly(3))
 			->method('writeln')
-			->willReturnCallback(function (string $message) use (&$calls) {
+			->willReturnCallback(function (string $message) use (&$calls): void {
 				$expected = array_shift($calls);
 				$this->assertEquals($expected[0], $message);
 			});

@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * SPDX-FileCopyrightText: 2017 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
@@ -11,11 +14,12 @@ return [
 		['name' => 'invitation_response#decline', 'url' => '/invitation/decline/{token}', 'verb' => 'GET'],
 		['name' => 'invitation_response#options', 'url' => '/invitation/moreOptions/{token}', 'verb' => 'GET'],
 		['name' => 'invitation_response#processMoreOptionsResult', 'url' => '/invitation/moreOptions/{token}', 'verb' => 'POST'],
-		['name' => 'example_content#setDefaultContact', 'url' => '/api/defaultcontact/contact', 'verb' => 'PUT'],
-		['name' => 'example_content#setEnableDefaultContact', 'url' => '/api/defaultcontact/config', 'verb' => 'PUT'],
 	],
 	'ocs' => [
 		['name' => 'direct#getUrl', 'url' => '/api/v1/direct', 'verb' => 'POST'],
+		['name' => 'federated_calendar#getPending', 'url' => '/api/v1/federated_calendars/pending', 'verb' => 'GET'],
+		['name' => 'federated_calendar#accept', 'url' => '/api/v1/federated_calendars/pending/{id}', 'verb' => 'POST'],
+		['name' => 'federated_calendar#decline', 'url' => '/api/v1/federated_calendars/pending/{id}', 'verb' => 'DELETE'],
 		['name' => 'upcoming_events#getEvents', 'url' => '/api/v1/events/upcoming', 'verb' => 'GET'],
 		['name' => 'out_of_office#getCurrentOutOfOfficeData', 'url' => '/api/v1/outOfOffice/{userId}/now', 'verb' => 'GET'],
 		['name' => 'out_of_office#getOutOfOffice', 'url' => '/api/v1/outOfOffice/{userId}', 'verb' => 'GET'],

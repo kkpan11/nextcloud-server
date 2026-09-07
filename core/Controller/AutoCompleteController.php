@@ -6,6 +6,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2017 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OC\Core\Controller;
 
 use OC\Core\ResponseDefinitions;
@@ -14,11 +15,8 @@ use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCSController;
-use OCP\Collaboration\AutoComplete\AutoCompleteEvent;
-use OCP\Collaboration\AutoComplete\AutoCompleteFilterEvent;
 use OCP\Collaboration\AutoComplete\IManager;
 use OCP\Collaboration\Collaborators\ISearch;
-use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IRequest;
 use OCP\Share\IShare;
 
@@ -31,7 +29,6 @@ class AutoCompleteController extends OCSController {
 		IRequest $request,
 		private ISearch $collaboratorSearch,
 		private IManager $autoCompleteManager,
-		private IEventDispatcher $dispatcher,
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -42,7 +39,7 @@ class AutoCompleteController extends OCSController {
 	 * @param string $search Text to search for
 	 * @param string|null $itemType Type of the items to search for
 	 * @param string|null $itemId ID of the items to search for
-	 * @param string|null $sorter can be piped, top prio first, e.g.: "commenters|share-recipients"
+	 * @param string|null $sorter can be piped, top priority first, e.g.: "commenters|share-recipients"
 	 * @param list<int> $shareTypes Types of shares to search for
 	 * @param int $limit Maximum number of results to return
 	 *
@@ -55,31 +52,7 @@ class AutoCompleteController extends OCSController {
 	public function get(string $search, ?string $itemType, ?string $itemId, ?string $sorter = null, array $shareTypes = [IShare::TYPE_USER], int $limit = 10): DataResponse {
 		// if enumeration/user listings are disabled, we'll receive an empty
 		// result from search() – thus nothing else to do here.
-		[$results,] = $this->collaboratorSearch->search($search, $shareTypes, false, $limit, 0);
-
-		$event = new AutoCompleteEvent([
-			'search' => $search,
-			'results' => $results,
-			'itemType' => $itemType,
-			'itemId' => $itemId,
-			'sorter' => $sorter,
-			'shareTypes' => $shareTypes,
-			'limit' => $limit,
-		]);
-		$this->dispatcher->dispatch(IManager::class . '::filterResults', $event);
-		$results = $event->getResults();
-
-		$event = new AutoCompleteFilterEvent(
-			$results,
-			$search,
-			$itemType,
-			$itemId,
-			$sorter,
-			$shareTypes,
-			$limit,
-		);
-		$this->dispatcher->dispatchTyped($event);
-		$results = $event->getResults();
+		[$results,] = $this->collaboratorSearch->filteredSearch($search, $shareTypes, false, $itemType, $itemId, $limit, 0);
 
 		$exactMatches = $results['exact'];
 		unset($results['exact']);

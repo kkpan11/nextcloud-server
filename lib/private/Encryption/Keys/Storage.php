@@ -1,72 +1,49 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OC\Encryption\Keys;
 
 use OC\Encryption\Util;
 use OC\Files\Filesystem;
 use OC\Files\View;
 use OC\ServerNotAvailableException;
-use OC\User\NoUserException;
 use OCP\Encryption\Keys\IStorage;
 use OCP\IConfig;
 use OCP\Security\ICrypto;
+use OCP\User\Exceptions\UserNotFoundException;
 
 class Storage implements IStorage {
-	// hidden file which indicate that the folder is a valid key storage
+	/** @var string hidden file which indicate that the folder is a valid key storage */
 	public const KEY_STORAGE_MARKER = '.oc_key_storage';
+	/** @var string base dir where all the file related keys are stored */
+	private string $keys_base_dir;
+	/** @var string root of the key storage default is empty which means that we use the data folder */
+	private string $root_dir;
+	private string $encryption_base_dir;
+	private string $backup_base_dir;
+	private array $keyCache = [];
 
-	/** @var View */
-	private $view;
-
-	/** @var Util */
-	private $util;
-
-	// base dir where all the file related keys are stored
-	/** @var string */
-	private $keys_base_dir;
-
-	// root of the key storage default is empty which means that we use the data folder
-	/** @var string */
-	private $root_dir;
-
-	/** @var string */
-	private $encryption_base_dir;
-
-	/** @var string */
-	private $backup_base_dir;
-
-	/** @var array */
-	private $keyCache = [];
-
-	/** @var ICrypto */
-	private $crypto;
-
-	/** @var IConfig */
-	private $config;
-
-	/**
-	 * @param View $view
-	 * @param Util $util
-	 */
-	public function __construct(View $view, Util $util, ICrypto $crypto, IConfig $config) {
-		$this->view = $view;
-		$this->util = $util;
-
+	public function __construct(
+		private readonly View $view,
+		private readonly Util $util,
+		private readonly ICrypto $crypto,
+		private readonly IConfig $config,
+	) {
 		$this->encryption_base_dir = '/files_encryption';
 		$this->keys_base_dir = $this->encryption_base_dir . '/keys';
 		$this->backup_base_dir = $this->encryption_base_dir . '/backup';
 		$this->root_dir = $this->util->getKeyStorageRoot();
-		$this->crypto = $crypto;
-		$this->config = $config;
 	}
 
 	/**
 	 * @inheritdoc
 	 */
+	#[\Override]
 	public function getUserKey($uid, $keyId, $encryptionModuleId) {
 		$path = $this->constructUserKeyPath($encryptionModuleId, $keyId, $uid);
 		return base64_decode($this->getKeyWithUid($path, $uid));
@@ -75,6 +52,7 @@ class Storage implements IStorage {
 	/**
 	 * @inheritdoc
 	 */
+	#[\Override]
 	public function getFileKey($path, $keyId, $encryptionModuleId) {
 		$realFile = $this->util->stripPartialFileExtension($path);
 		$keyDir = $this->util->getFileKeyDir($encryptionModuleId, $realFile);
@@ -94,6 +72,7 @@ class Storage implements IStorage {
 	/**
 	 * @inheritdoc
 	 */
+	#[\Override]
 	public function getSystemUserKey($keyId, $encryptionModuleId) {
 		$path = $this->constructUserKeyPath($encryptionModuleId, $keyId, null);
 		return base64_decode($this->getKeyWithUid($path, null));
@@ -102,6 +81,7 @@ class Storage implements IStorage {
 	/**
 	 * @inheritdoc
 	 */
+	#[\Override]
 	public function setUserKey($uid, $keyId, $key, $encryptionModuleId) {
 		$path = $this->constructUserKeyPath($encryptionModuleId, $keyId, $uid);
 		return $this->setKey($path, [
@@ -113,6 +93,7 @@ class Storage implements IStorage {
 	/**
 	 * @inheritdoc
 	 */
+	#[\Override]
 	public function setFileKey($path, $keyId, $key, $encryptionModuleId) {
 		$keyDir = $this->util->getFileKeyDir($encryptionModuleId, $path);
 		return $this->setKey($keyDir . $keyId, [
@@ -123,6 +104,7 @@ class Storage implements IStorage {
 	/**
 	 * @inheritdoc
 	 */
+	#[\Override]
 	public function setSystemUserKey($keyId, $key, $encryptionModuleId) {
 		$path = $this->constructUserKeyPath($encryptionModuleId, $keyId, null);
 		return $this->setKey($path, [
@@ -134,11 +116,12 @@ class Storage implements IStorage {
 	/**
 	 * @inheritdoc
 	 */
+	#[\Override]
 	public function deleteUserKey($uid, $keyId, $encryptionModuleId) {
 		try {
 			$path = $this->constructUserKeyPath($encryptionModuleId, $keyId, $uid);
 			return !$this->view->file_exists($path) || $this->view->unlink($path);
-		} catch (NoUserException $e) {
+		} catch (UserNotFoundException $e) {
 			// this exception can come from initMountPoints() from setupUserMounts()
 			// for a deleted user.
 			//
@@ -155,6 +138,7 @@ class Storage implements IStorage {
 	/**
 	 * @inheritdoc
 	 */
+	#[\Override]
 	public function deleteFileKey($path, $keyId, $encryptionModuleId) {
 		$keyDir = $this->util->getFileKeyDir($encryptionModuleId, $path);
 		return !$this->view->file_exists($keyDir . $keyId) || $this->view->unlink($keyDir . $keyId);
@@ -163,6 +147,7 @@ class Storage implements IStorage {
 	/**
 	 * @inheritdoc
 	 */
+	#[\Override]
 	public function deleteAllFileKeys($path) {
 		$keyDir = $this->util->getFileKeyDir('', $path);
 		return !$this->view->file_exists($keyDir) || $this->view->deleteAll($keyDir);
@@ -171,6 +156,7 @@ class Storage implements IStorage {
 	/**
 	 * @inheritdoc
 	 */
+	#[\Override]
 	public function deleteSystemUserKey($keyId, $encryptionModuleId) {
 		$path = $this->constructUserKeyPath($encryptionModuleId, $keyId, null);
 		return !$this->view->file_exists($path) || $this->view->unlink($path);
@@ -192,7 +178,7 @@ class Storage implements IStorage {
 				. $encryptionModuleId . '/' . $uid . '.' . $keyId;
 		}
 
-		return \OC\Files\Filesystem::normalizePath($path);
+		return Filesystem::normalizePath($path);
 	}
 
 	/**
@@ -341,6 +327,7 @@ class Storage implements IStorage {
 	 * @param string $target
 	 * @return boolean
 	 */
+	#[\Override]
 	public function renameKeys($source, $target) {
 		$sourcePath = $this->getPathToKeys($source);
 		$targetPath = $this->getPathToKeys($target);
@@ -355,7 +342,6 @@ class Storage implements IStorage {
 		return false;
 	}
 
-
 	/**
 	 * copy keys if a file was renamed
 	 *
@@ -363,6 +349,7 @@ class Storage implements IStorage {
 	 * @param string $target
 	 * @return boolean
 	 */
+	#[\Override]
 	public function copyKeys($source, $target) {
 		$sourcePath = $this->getPathToKeys($source);
 		$targetPath = $this->getPathToKeys($target);
@@ -385,6 +372,7 @@ class Storage implements IStorage {
 	 * @return bool
 	 * @since 12.0.0
 	 */
+	#[\Override]
 	public function backupUserKeys($encryptionModuleId, $purpose, $uid) {
 		$source = $uid . $this->encryption_base_dir . '/' . $encryptionModuleId;
 		$backupDir = $uid . $this->backup_base_dir;

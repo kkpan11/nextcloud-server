@@ -1,10 +1,11 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace Test\Core\Command\Group;
+namespace Tests\Core\Command\Group;
 
 use OC\Core\Command\Group\Info;
 use OCP\IGroup;
@@ -26,6 +27,7 @@ class InfoTest extends TestCase {
 	/** @var OutputInterface|\PHPUnit\Framework\MockObject\MockObject */
 	private $output;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 

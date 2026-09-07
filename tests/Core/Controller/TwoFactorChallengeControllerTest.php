@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-namespace Test\Core\Controller;
+namespace Tests\Core\Controller;
 
 use OC\Authentication\TwoFactorAuth\Manager;
 use OC\Authentication\TwoFactorAuth\ProviderSet;
@@ -48,6 +48,7 @@ class TwoFactorChallengeControllerTest extends TestCase {
 	/** @var TwoFactorChallengeController|\PHPUnit\Framework\MockObject\MockObject */
 	private $controller;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -253,6 +254,7 @@ class TwoFactorChallengeControllerTest extends TestCase {
 
 	public function testSolveInvalidChallenge(): void {
 		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('myuser');
 		$provider = $this->createMock(IProvider::class);
 
 		$this->userSession->expects($this->once())
@@ -282,11 +284,13 @@ class TwoFactorChallengeControllerTest extends TestCase {
 			->willReturn('myprovider');
 
 		$expected = new RedirectResponse('files/index/url');
+		$expected->throttle(['user' => 'myuser', 'provider' => 'myprovider']);
 		$this->assertEquals($expected, $this->controller->solveChallenge('myprovider', 'token', '/url'));
 	}
 
 	public function testSolveChallengeTwoFactorException(): void {
 		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('myuser');
 		$provider = $this->createMock(IProvider::class);
 		$exception = new TwoFactorException('2FA failed');
 
@@ -301,14 +305,14 @@ class TwoFactorChallengeControllerTest extends TestCase {
 		$this->twoFactorManager->expects($this->once())
 			->method('verifyChallenge')
 			->with('myprovider', $user, 'token')
-			->will($this->throwException($exception));
+			->willThrowException($exception);
 		$calls = [
 			['two_factor_auth_error_message', '2FA failed'],
 			['two_factor_auth_error', true],
 		];
 		$this->session->expects($this->exactly(2))
 			->method('set')
-			->willReturnCallback(function () use (&$calls) {
+			->willReturnCallback(function () use (&$calls): void {
 				$expected = array_shift($calls);
 				$this->assertEquals($expected, func_get_args());
 			});
@@ -324,6 +328,7 @@ class TwoFactorChallengeControllerTest extends TestCase {
 			->willReturn('myprovider');
 
 		$expected = new RedirectResponse('files/index/url');
+		$expected->throttle(['user' => 'myuser', 'provider' => 'myprovider']);
 		$this->assertEquals($expected, $this->controller->solveChallenge('myprovider', 'token', '/url'));
 	}
 

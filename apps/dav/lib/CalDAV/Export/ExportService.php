@@ -5,6 +5,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2025 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OCA\DAV\CalDAV\Export;
 
 use Generator;
@@ -18,7 +19,7 @@ use Sabre\VObject\Writer;
  * Calendar Export Service
  */
 class ExportService {
-	
+
 	public const FORMATS = ['ical', 'jcal', 'xcal'];
 	private string $systemVersion;
 
@@ -92,7 +93,7 @@ class ExportService {
 			default => Writer::write($vobject)
 		};
 	}
-	
+
 	/**
 	 * Generates serialized content for a component in xml format
 	 */

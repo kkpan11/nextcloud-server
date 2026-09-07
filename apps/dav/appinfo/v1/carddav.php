@@ -23,7 +23,6 @@ use OCA\DAV\Connector\Sabre\Principal;
 use OCP\Accounts\IAccountManager;
 use OCP\App\IAppManager;
 use OCP\EventDispatcher\IEventDispatcher;
-use OCP\Files\AppData\IAppDataFactory;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
@@ -31,6 +30,7 @@ use OCP\IRequest;
 use OCP\ISession;
 use OCP\IUserManager;
 use OCP\IUserSession;
+use OCP\L10N\IFactory as IL10nFactory;
 use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
 use Psr\Log\LoggerInterface;
@@ -54,7 +54,7 @@ $principalBackend = new Principal(
 	Server::get(ProxyMapper::class),
 	Server::get(KnownUserService::class),
 	Server::get(IConfig::class),
-	\OC::$server->getL10NFactory(),
+	Server::get(IL10nFactory::class),
 	'principals/'
 );
 $db = Server::get(IDBConnection::class);
@@ -64,6 +64,7 @@ $cardDavBackend = new CardDavBackend(
 	Server::get(IUserManager::class),
 	Server::get(IEventDispatcher::class),
 	Server::get(\OCA\DAV\CardDAV\Sharing\Backend::class),
+	Server::get(IConfig::class),
 );
 
 $debugging = Server::get(IConfig::class)->getSystemValue('debug', false);
@@ -85,9 +86,10 @@ $nodes = [
 $server = new \Sabre\DAV\Server($nodes);
 $server::$exposeVersion = false;
 $server->httpRequest->setUrl(Server::get(IRequest::class)->getRequestUri());
+/** @var string $baseuri defined in remote.php */
 $server->setBaseUri($baseuri);
 // Add plugins
-$server->addPlugin(new MaintenancePlugin(Server::get(IConfig::class), \OC::$server->getL10N('dav')));
+$server->addPlugin(new MaintenancePlugin(Server::get(IConfig::class), Server::get(IL10nFactory::class)->get('dav')));
 $server->addPlugin(new \Sabre\DAV\Auth\Plugin($authBackend));
 $server->addPlugin(new Plugin());
 
@@ -98,13 +100,10 @@ if ($debugging) {
 
 $server->addPlugin(new \Sabre\DAV\Sync\Plugin());
 $server->addPlugin(new \Sabre\CardDAV\VCFExportPlugin());
-$server->addPlugin(new ImageExportPlugin(new PhotoCache(
-	Server::get(IAppDataFactory::class)->get('dav-photocache'),
-	Server::get(LoggerInterface::class)
-)));
+$server->addPlugin(new ImageExportPlugin(Server::get(PhotoCache::class)));
 $server->addPlugin(new ExceptionLoggerPlugin('carddav', Server::get(LoggerInterface::class)));
 $server->addPlugin(Server::get(CardDavRateLimitingPlugin::class));
 $server->addPlugin(Server::get(CardDavValidatePlugin::class));
 
 // And off we go!
-$server->exec();
+$server->start();

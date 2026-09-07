@@ -18,6 +18,7 @@ use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IUser;
+use OCP\Security\ICrypto;
 use OCP\Settings\DeclarativeSettingsTypes;
 use OCP\Settings\Events\DeclarativeSettingsSetValueEvent;
 use OCP\Settings\IDeclarativeManager;
@@ -49,6 +50,9 @@ class DeclarativeManagerTest extends TestCase {
 
 	/** @var LoggerInterface|MockObject */
 	private $logger;
+
+	/** @var ICrypto|MockObject */
+	private $crypto;
 
 	/** @var IUser|MockObject */
 	private $user;
@@ -215,11 +219,42 @@ class DeclarativeManagerTest extends TestCase {
 					],
 				],
 			],
+			[
+				'id' => 'test_sensitive_field',
+				'title' => 'Sensitive text field',
+				'description' => 'Set some secure value setting that is stored encrypted',
+				'type' => DeclarativeSettingsTypes::TEXT,
+				'label' => 'Sensitive field',
+				'placeholder' => 'Set secure value',
+				'default' => '',
+				'sensitive' => true, // only for TEXT, PASSWORD types
+			],
+			[
+				'id' => 'test_sensitive_field_2',
+				'title' => 'Sensitive password field',
+				'description' => 'Set some password setting that is stored encrypted',
+				'type' => DeclarativeSettingsTypes::PASSWORD,
+				'label' => 'Sensitive field',
+				'placeholder' => 'Set secure value',
+				'default' => '',
+				'sensitive' => true, // only for TEXT, PASSWORD types
+			],
+			[
+				'id' => 'test_non_sensitive_field',
+				'title' => 'Password field',
+				'description' => 'Set some password setting',
+				'type' => DeclarativeSettingsTypes::PASSWORD,
+				'label' => 'Password field',
+				'placeholder' => 'Set secure value',
+				'default' => '',
+				'sensitive' => false,
+			],
 		],
 	];
 
 	public static bool $testSetInternalValueAfterChange = false;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -229,6 +264,7 @@ class DeclarativeManagerTest extends TestCase {
 		$this->config = $this->createMock(IConfig::class);
 		$this->appConfig = $this->createMock(IAppConfig::class);
 		$this->logger = $this->createMock(LoggerInterface::class);
+		$this->crypto = $this->createMock(ICrypto::class);
 
 		$this->declarativeManager = new DeclarativeManager(
 			$this->eventDispatcher,
@@ -236,7 +272,8 @@ class DeclarativeManagerTest extends TestCase {
 			$this->coordinator,
 			$this->config,
 			$this->appConfig,
-			$this->logger
+			$this->logger,
+			$this->crypto,
 		);
 
 		$this->user = $this->createMock(IUser::class);
@@ -309,9 +346,7 @@ class DeclarativeManagerTest extends TestCase {
 		$this->assertFalse(isset($formIds[$app]) && in_array($schemaDuplicateFields['id'], $formIds[$app]));
 	}
 
-	/**
-	 * @dataProvider dataValidateSchema
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataValidateSchema')]
 	public function testValidateSchema(bool $expected, bool $expectException, string $app, array $schema): void {
 		if ($expectException) {
 			$this->expectException(\Exception::class);
@@ -521,8 +556,15 @@ class DeclarativeManagerTest extends TestCase {
 		$schema = self::validSchemaAllFields;
 		$this->declarativeManager->registerSchema($app, $schema);
 
+		// A non-admin user must not receive admin declarative forms, but this must not
+		// throw: it would abort rendering of a section a user can legitimately access
+		// through admin delegation (which only covers non-declarative settings).
+		$forms = $this->declarativeManager->getFormsWithValues($this->user, $schema['section_type'], $schema['section_id']);
+		$this->assertEmpty($forms);
+
+		// Writing to an admin declarative form is still forbidden for a non-admin user.
 		$this->expectException(\Exception::class);
-		$this->declarativeManager->getFormsWithValues($this->user, $schema['section_type'], $schema['section_id']);
+		$this->declarativeManager->setValue($this->user, $app, $schema['id'], 'some_real_setting', '120m');
 	}
 
 	/**

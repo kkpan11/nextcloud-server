@@ -6,6 +6,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OC\Security;
 
 use OCP\IConfig;
@@ -39,10 +40,15 @@ class Hasher implements IHasher {
 	public function __construct(
 		private IConfig $config,
 	) {
-		if (\defined('PASSWORD_ARGON2ID') || \defined('PASSWORD_ARGON2I')) {
-			// password_hash fails, when the minimum values are undershot.
-			// In this case, apply minimum.
-			$this->options['threads'] = max($this->config->getSystemValueInt('hashingThreads', PASSWORD_ARGON2_DEFAULT_THREADS), 1);
+		if (\defined('PASSWORD_ARGON2_PROVIDER')) {
+			// password_hash fails, when the minimum values are undershot or maximum overshot. So apply minimum/maximum.
+			/** @psalm-suppress TypeDoesNotContainType - The constant defaults to "standard" but when sodium is installed it will be "sodium" */
+			if (PASSWORD_ARGON2_PROVIDER === 'sodium') {
+				$this->options['threads'] = 1;
+			} else {
+				// standard (libargon) or openssl
+				$this->options['threads'] = max($this->config->getSystemValueInt('hashingThreads', PASSWORD_ARGON2_DEFAULT_THREADS), 1);
+			}
 			// The minimum memory cost is 8 KiB per thread.
 			$this->options['memory_cost'] = max($this->config->getSystemValueInt('hashingMemoryCost', PASSWORD_ARGON2_DEFAULT_MEMORY_COST), $this->options['threads'] * 8);
 			$this->options['time_cost'] = max($this->config->getSystemValueInt('hashingTimeCost', PASSWORD_ARGON2_DEFAULT_TIME_COST), 1);
@@ -62,6 +68,7 @@ class Hasher implements IHasher {
 	 * @param string $message Message to generate hash from
 	 * @return string Hash of the message with appended version parameter
 	 */
+	#[\Override]
 	public function hash(string $message): string {
 		$alg = $this->getPrefferedAlgorithm();
 
@@ -106,8 +113,8 @@ class Hasher implements IHasher {
 
 		// Verify whether it matches a legacy PHPass or SHA1 string
 		$hashLength = \strlen($hash);
-		if (($hashLength === 60 && password_verify($message . $this->legacySalt, $hash)) ||
-			($hashLength === 40 && hash_equals($hash, sha1($message)))) {
+		if (($hashLength === 60 && password_verify($message . $this->legacySalt, $hash))
+			|| ($hashLength === 40 && hash_equals($hash, sha1($message)))) {
 			$newHash = $this->hash($message);
 			return true;
 		}
@@ -115,8 +122,8 @@ class Hasher implements IHasher {
 		// Verify whether it matches a legacy PHPass or SHA1 string
 		// Retry with empty passwordsalt for cases where it was not set
 		$hashLength = \strlen($hash);
-		if (($hashLength === 60 && password_verify($message, $hash)) ||
-			($hashLength === 40 && hash_equals($hash, sha1($message)))) {
+		if (($hashLength === 60 && password_verify($message, $hash))
+			|| ($hashLength === 40 && hash_equals($hash, sha1($message)))) {
 			$newHash = $this->hash($message);
 			return true;
 		}
@@ -150,6 +157,7 @@ class Hasher implements IHasher {
 	 * @param null|string &$newHash Reference will contain the updated hash if necessary. Update the existing hash with this one.
 	 * @return bool Whether $hash is a valid hash of $message
 	 */
+	#[\Override]
 	public function verify(string $message, string $hash, &$newHash = null): bool {
 		$splittedHash = $this->splitHash($hash);
 
@@ -191,6 +199,7 @@ class Hasher implements IHasher {
 		return $default;
 	}
 
+	#[\Override]
 	public function validate(string $prefixedHash): bool {
 		$splitHash = $this->splitHash($prefixedHash);
 		if (empty($splitHash)) {

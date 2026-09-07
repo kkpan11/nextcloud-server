@@ -13,10 +13,11 @@ use OC\Authentication\Login\UpdateLastPasswordConfirmCommand;
 use OCP\ISession;
 use PHPUnit\Framework\MockObject\MockObject;
 
-class UpdateLastPasswordConfirmCommandTest extends ALoginCommandTest {
+class UpdateLastPasswordConfirmCommandTest extends ALoginTestCommand {
 	/** @var ISession|MockObject */
 	private $session;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 

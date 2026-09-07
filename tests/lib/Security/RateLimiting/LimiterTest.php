@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Test\Security\RateLimiting;
 
 use OC\Security\RateLimiting\Backend\IBackend;
+use OC\Security\RateLimiting\Exception\RateLimitExceededException;
 use OC\Security\RateLimiting\Limiter;
 use OCP\IUser;
 use OCP\Security\RateLimiting\ILimiter;
@@ -23,6 +24,7 @@ class LimiterTest extends TestCase {
 	private ILimiter $limiter;
 	private LoggerInterface $logger;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -35,9 +37,8 @@ class LimiterTest extends TestCase {
 		);
 	}
 
-
 	public function testRegisterAnonRequestExceeded(): void {
-		$this->expectException(\OC\Security\RateLimiting\Exception\RateLimitExceededException::class);
+		$this->expectException(RateLimitExceededException::class);
 		$this->expectExceptionMessage('Rate limit exceeded');
 
 		$this->backend
@@ -77,9 +78,8 @@ class LimiterTest extends TestCase {
 		$this->limiter->registerAnonRequest('MyIdentifier', 100, 100, '127.0.0.1');
 	}
 
-
 	public function testRegisterUserRequestExceeded(): void {
-		$this->expectException(\OC\Security\RateLimiting\Exception\RateLimitExceededException::class);
+		$this->expectException(RateLimitExceededException::class);
 		$this->expectExceptionMessage('Rate limit exceeded');
 
 		/** @var IUser|\PHPUnit\Framework\MockObject\MockObject $user */

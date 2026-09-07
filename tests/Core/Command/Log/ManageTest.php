@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016-2024 Nextcloud GmbH and Nextcloud contributors
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
@@ -24,6 +25,7 @@ class ManageTest extends TestCase {
 	/** @var \Symfony\Component\Console\Command\Command */
 	protected $command;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -72,13 +74,11 @@ class ManageTest extends TestCase {
 		self::invokePrivate($this->command, 'execute', [$this->consoleInput, $this->consoleOutput]);
 	}
 
-
 	public function testValidateBackend(): void {
 		$this->expectException(\InvalidArgumentException::class);
 
 		self::invokePrivate($this->command, 'validateBackend', ['notabackend']);
 	}
-
 
 	public function testValidateTimezone(): void {
 		$this->expectException(\Exception::class);
@@ -99,15 +99,12 @@ class ManageTest extends TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider dataConvertLevelString
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataConvertLevelString')]
 	public function testConvertLevelString(string $levelString, int $expectedInt): void {
 		$this->assertEquals($expectedInt,
 			self::invokePrivate($this->command, 'convertLevelString', [$levelString])
 		);
 	}
-
 
 	public function testConvertLevelStringInvalid(): void {
 		$this->expectException(\InvalidArgumentException::class);
@@ -125,15 +122,12 @@ class ManageTest extends TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider dataConvertLevelNumber
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataConvertLevelNumber')]
 	public function testConvertLevelNumber(int $levelNum, string $expectedString): void {
 		$this->assertEquals($expectedString,
 			self::invokePrivate($this->command, 'convertLevelNumber', [$levelNum])
 		);
 	}
-
 
 	public function testConvertLevelNumberInvalid(): void {
 		$this->expectException(\InvalidArgumentException::class);

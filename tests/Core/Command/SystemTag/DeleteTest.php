@@ -1,10 +1,11 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace Test\Core\Command\SystemTag;
+namespace Tests\Core\Command\SystemTag;
 
 use OC\Core\Command\SystemTag\Delete;
 use OCP\SystemTag\ISystemTagManager;
@@ -26,6 +27,7 @@ class DeleteTest extends TestCase {
 	/** @var OutputInterface|\PHPUnit\Framework\MockObject\MockObject */
 	private $output;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -69,7 +71,7 @@ class DeleteTest extends TestCase {
 			});
 
 		$this->systemTagManager->method('deleteTags')
-			->willReturnCallback(function ($tagId) {
+			->willReturnCallback(function ($tagId): void {
 				throw new TagNotFoundException();
 			});
 

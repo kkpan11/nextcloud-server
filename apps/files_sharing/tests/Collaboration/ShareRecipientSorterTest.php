@@ -1,8 +1,10 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2017 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OCA\Files_Sharing\Tests\Collaboration;
 
 use OCA\Files_Sharing\Collaboration\ShareRecipientSorter;
@@ -35,9 +37,9 @@ class ShareRecipientSorterTest extends TestCase {
 	}
 
 	/**
-	 * @dataProvider sortDataProvider
 	 * @param $data
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider(methodName: 'sortDataProvider')]
 	public function testSort($data): void {
 		$node = $this->createMock(Node::class);
 
@@ -114,39 +116,37 @@ class ShareRecipientSorterTest extends TestCase {
 		$this->assertEquals($originalArray, $workArray);
 	}
 
-	public function sortDataProvider() {
+	public static function sortDataProvider() {
 		return [[
 			[
 				#0 – sort properly and otherwise keep existing order
 				'context' => ['itemType' => 'files', 'itemId' => '42'],
 				'accessList' => ['users' => ['celia', 'darius', 'faruk', 'gail'], 'bots' => ['r2-d2']],
 				'input' => [
-					'users' =>
-						[
-							['value' => ['shareWith' => 'alice']],
-							['value' => ['shareWith' => 'bob']],
-							['value' => ['shareWith' => 'celia']],
-							['value' => ['shareWith' => 'darius']],
-							['value' => ['shareWith' => 'elena']],
-							['value' => ['shareWith' => 'faruk']],
-							['value' => ['shareWith' => 'gail']],
-						],
+					'users' => [
+						['value' => ['shareWith' => 'alice']],
+						['value' => ['shareWith' => 'bob']],
+						['value' => ['shareWith' => 'celia']],
+						['value' => ['shareWith' => 'darius']],
+						['value' => ['shareWith' => 'elena']],
+						['value' => ['shareWith' => 'faruk']],
+						['value' => ['shareWith' => 'gail']],
+					],
 					'bots' => [
 						['value' => ['shareWith' => 'c-3po']],
 						['value' => ['shareWith' => 'r2-d2']],
 					]
 				],
 				'expected' => [
-					'users' =>
-						[
-							['value' => ['shareWith' => 'celia']],
-							['value' => ['shareWith' => 'darius']],
-							['value' => ['shareWith' => 'faruk']],
-							['value' => ['shareWith' => 'gail']],
-							['value' => ['shareWith' => 'alice']],
-							['value' => ['shareWith' => 'bob']],
-							['value' => ['shareWith' => 'elena']],
-						],
+					'users' => [
+						['value' => ['shareWith' => 'celia']],
+						['value' => ['shareWith' => 'darius']],
+						['value' => ['shareWith' => 'faruk']],
+						['value' => ['shareWith' => 'gail']],
+						['value' => ['shareWith' => 'alice']],
+						['value' => ['shareWith' => 'bob']],
+						['value' => ['shareWith' => 'elena']],
+					],
 					'bots' => [
 						['value' => ['shareWith' => 'r2-d2']],
 						['value' => ['shareWith' => 'c-3po']],
@@ -158,32 +158,30 @@ class ShareRecipientSorterTest extends TestCase {
 				'context' => ['itemType' => 'files', 'itemId' => '42'],
 				'accessList' => ['users' => false],
 				'input' => [
-					'users' =>
-						[
-							['value' => ['shareWith' => 'alice']],
-							['value' => ['shareWith' => 'bob']],
-							['value' => ['shareWith' => 'celia']],
-							['value' => ['shareWith' => 'darius']],
-							['value' => ['shareWith' => 'elena']],
-							['value' => ['shareWith' => 'faruk']],
-							['value' => ['shareWith' => 'gail']],
-						],
+					'users' => [
+						['value' => ['shareWith' => 'alice']],
+						['value' => ['shareWith' => 'bob']],
+						['value' => ['shareWith' => 'celia']],
+						['value' => ['shareWith' => 'darius']],
+						['value' => ['shareWith' => 'elena']],
+						['value' => ['shareWith' => 'faruk']],
+						['value' => ['shareWith' => 'gail']],
+					],
 					'bots' => [
 						['value' => ['shareWith' => 'c-3po']],
 						['value' => ['shareWith' => 'r2-d2']],
 					]
 				],
 				'expected' => [
-					'users' =>
-						[
-							['value' => ['shareWith' => 'alice']],
-							['value' => ['shareWith' => 'bob']],
-							['value' => ['shareWith' => 'celia']],
-							['value' => ['shareWith' => 'darius']],
-							['value' => ['shareWith' => 'elena']],
-							['value' => ['shareWith' => 'faruk']],
-							['value' => ['shareWith' => 'gail']],
-						],
+					'users' => [
+						['value' => ['shareWith' => 'alice']],
+						['value' => ['shareWith' => 'bob']],
+						['value' => ['shareWith' => 'celia']],
+						['value' => ['shareWith' => 'darius']],
+						['value' => ['shareWith' => 'elena']],
+						['value' => ['shareWith' => 'faruk']],
+						['value' => ['shareWith' => 'gail']],
+					],
 					'bots' => [
 						['value' => ['shareWith' => 'c-3po']],
 						['value' => ['shareWith' => 'r2-d2']],
@@ -195,32 +193,30 @@ class ShareRecipientSorterTest extends TestCase {
 				'context' => ['itemType' => 'announcements', 'itemId' => '42'],
 				'accessList' => null, // not needed
 				'input' => [
-					'users' =>
-						[
-							['value' => ['shareWith' => 'alice']],
-							['value' => ['shareWith' => 'bob']],
-							['value' => ['shareWith' => 'celia']],
-							['value' => ['shareWith' => 'darius']],
-							['value' => ['shareWith' => 'elena']],
-							['value' => ['shareWith' => 'faruk']],
-							['value' => ['shareWith' => 'gail']],
-						],
+					'users' => [
+						['value' => ['shareWith' => 'alice']],
+						['value' => ['shareWith' => 'bob']],
+						['value' => ['shareWith' => 'celia']],
+						['value' => ['shareWith' => 'darius']],
+						['value' => ['shareWith' => 'elena']],
+						['value' => ['shareWith' => 'faruk']],
+						['value' => ['shareWith' => 'gail']],
+					],
 					'bots' => [
 						['value' => ['shareWith' => 'c-3po']],
 						['value' => ['shareWith' => 'r2-d2']],
 					]
 				],
 				'expected' => [
-					'users' =>
-						[
-							['value' => ['shareWith' => 'alice']],
-							['value' => ['shareWith' => 'bob']],
-							['value' => ['shareWith' => 'celia']],
-							['value' => ['shareWith' => 'darius']],
-							['value' => ['shareWith' => 'elena']],
-							['value' => ['shareWith' => 'faruk']],
-							['value' => ['shareWith' => 'gail']],
-						],
+					'users' => [
+						['value' => ['shareWith' => 'alice']],
+						['value' => ['shareWith' => 'bob']],
+						['value' => ['shareWith' => 'celia']],
+						['value' => ['shareWith' => 'darius']],
+						['value' => ['shareWith' => 'elena']],
+						['value' => ['shareWith' => 'faruk']],
+						['value' => ['shareWith' => 'gail']],
+					],
 					'bots' => [
 						['value' => ['shareWith' => 'c-3po']],
 						['value' => ['shareWith' => 'r2-d2']],

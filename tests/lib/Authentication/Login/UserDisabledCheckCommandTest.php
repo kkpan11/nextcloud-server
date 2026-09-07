@@ -15,13 +15,14 @@ use OCP\IUserManager;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 
-class UserDisabledCheckCommandTest extends ALoginCommandTest {
+class UserDisabledCheckCommandTest extends ALoginTestCommand {
 	/** @var IUserManager|MockObject */
 	private $userManager;
 
 	/** @var LoggerInterface|MockObject */
 	private $logger;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 

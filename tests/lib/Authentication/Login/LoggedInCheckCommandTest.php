@@ -15,13 +15,14 @@ use OCP\EventDispatcher\IEventDispatcher;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 
-class LoggedInCheckCommandTest extends ALoginCommandTest {
+class LoggedInCheckCommandTest extends ALoginTestCommand {
 	/** @var LoggerInterface|MockObject */
 	private $logger;
 
 	/** @var IEventDispatcher|MockObject */
 	private $dispatcher;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 

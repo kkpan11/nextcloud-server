@@ -11,21 +11,19 @@ namespace lib\AppFramework\Bootstrap;
 
 use OC\AppFramework\Bootstrap\RegistrationContext;
 use OC\AppFramework\Bootstrap\ServiceRegistration;
+use OC\AppFramework\DependencyInjection\DIContainer;
 use OC\Core\Middleware\TwoFactorMiddleware;
 use OCP\AppFramework\App;
-use OCP\AppFramework\IAppContainer;
 use OCP\EventDispatcher\IEventDispatcher;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 class RegistrationContextTest extends TestCase {
-	/** @var LoggerInterface|MockObject */
-	private $logger;
+	private LoggerInterface&MockObject $logger;
+	private RegistrationContext $context;
 
-	/** @var RegistrationContext */
-	private $context;
-
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -39,7 +37,7 @@ class RegistrationContextTest extends TestCase {
 	public function testRegisterCapability(): void {
 		$app = $this->createMock(App::class);
 		$name = 'abc';
-		$container = $this->createMock(IAppContainer::class);
+		$container = $this->createMock(DIContainer::class);
 		$app->method('getContainer')
 			->willReturn($container);
 		$container->expects($this->once())
@@ -68,16 +66,14 @@ class RegistrationContextTest extends TestCase {
 		$this->context->delegateEventListenerRegistrations($dispatcher);
 	}
 
-	/**
-	 * @dataProvider dataProvider_TrueFalse
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('dataProvider_TrueFalse')]
 	public function testRegisterService(bool $shared): void {
 		$app = $this->createMock(App::class);
 		$service = 'abc';
 		$factory = function () {
 			return 'def';
 		};
-		$container = $this->createMock(IAppContainer::class);
+		$container = $this->createMock(DIContainer::class);
 		$app->method('getContainer')
 			->willReturn($container);
 		$container->expects($this->once())
@@ -96,7 +92,7 @@ class RegistrationContextTest extends TestCase {
 		$app = $this->createMock(App::class);
 		$alias = 'abc';
 		$target = 'def';
-		$container = $this->createMock(IAppContainer::class);
+		$container = $this->createMock(DIContainer::class);
 		$app->method('getContainer')
 			->willReturn($container);
 		$container->expects($this->once())
@@ -115,7 +111,7 @@ class RegistrationContextTest extends TestCase {
 		$app = $this->createMock(App::class);
 		$name = 'abc';
 		$value = 'def';
-		$container = $this->createMock(IAppContainer::class);
+		$container = $this->createMock(DIContainer::class);
 		$app->method('getContainer')
 			->willReturn($container);
 		$container->expects($this->once())
@@ -156,7 +152,7 @@ class RegistrationContextTest extends TestCase {
 		);
 	}
 
-	public function dataProvider_TrueFalse() {
+	public static function dataProvider_TrueFalse(): array {
 		return[
 			[true],
 			[false]

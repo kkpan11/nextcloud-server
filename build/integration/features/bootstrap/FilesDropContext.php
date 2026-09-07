@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2016 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
@@ -7,7 +8,7 @@ use Behat\Behat\Context\Context;
 use Behat\Behat\Context\SnippetAcceptingContext;
 use GuzzleHttp\Client;
 
-require __DIR__ . '/../../vendor/autoload.php';
+require __DIR__ . '/autoload.php';
 
 class FilesDropContext implements Context, SnippetAcceptingContext {
 	use WebDav;
@@ -24,8 +25,8 @@ class FilesDropContext implements Context, SnippetAcceptingContext {
 			$token = $this->lastShareData->data[0]->token;
 		}
 
-		$base = substr($this->baseUrl, 0, -4);
-		$fullUrl = str_replace('//', '/', $base . "/public.php/dav/files/$token/$path");
+		$base = rtrim(substr($this->baseUrl, 0, -4), '/');
+		$fullUrl = $base . str_replace('//', '/', "/public.php/dav/files/$token/$path");
 
 		$options['headers'] = [
 			'X-REQUESTED-WITH' => 'XMLHttpRequest',
@@ -43,15 +44,13 @@ class FilesDropContext implements Context, SnippetAcceptingContext {
 			$this->response = $e->getResponse();
 		}
 	}
-		
-		
+
 	/**
 	 * @When Dropping file :path with :content as :nickName
 	 */
 	public function droppingFileWithAs($path, $content, $nickname) {
 		$this->droppingFileWith($path, $content, $nickname);
 	}
-
 
 	/**
 	 * @When Creating folder :folder in drop
@@ -65,8 +64,8 @@ class FilesDropContext implements Context, SnippetAcceptingContext {
 			$token = $this->lastShareData->data[0]->token;
 		}
 
-		$base = substr($this->baseUrl, 0, -4);
-		$fullUrl = str_replace('//', '/', $base . "/public.php/dav/files/$token/$folder");
+		$base = rtrim(substr($this->baseUrl, 0, -4), '/');
+		$fullUrl = $base . str_replace('//', '/', "/public.php/dav/files/$token/$folder");
 
 		$options['headers'] = [
 			'X-REQUESTED-WITH' => 'XMLHttpRequest',
@@ -82,7 +81,6 @@ class FilesDropContext implements Context, SnippetAcceptingContext {
 			$this->response = $e->getResponse();
 		}
 	}
-
 
 	/**
 	 * @When Creating folder :folder in drop as :nickName

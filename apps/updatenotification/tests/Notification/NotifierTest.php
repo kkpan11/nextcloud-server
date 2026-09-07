@@ -7,6 +7,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2018 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OCA\UpdateNotification\Tests\Notification;
 
 use OCA\UpdateNotification\Notification\Notifier;
@@ -49,9 +50,8 @@ class NotifierTest extends TestCase {
 
 	/**
 	 * @param array $methods
-	 * @return Notifier|\PHPUnit\Framework\MockObject\MockObject
 	 */
-	protected function getNotifier(array $methods = []) {
+	protected function getNotifier(array $methods = []): Notifier|MockObject {
 		if (empty($methods)) {
 			return new Notifier(
 				$this->urlGenerator,
@@ -81,7 +81,7 @@ class NotifierTest extends TestCase {
 		}
 	}
 
-	public function dataUpdateAlreadyInstalledCheck(): array {
+	public static function dataUpdateAlreadyInstalledCheck(): array {
 		return [
 			['1.1.0', '1.0.0', false],
 			['1.1.0', '1.1.0', true],
@@ -89,13 +89,7 @@ class NotifierTest extends TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider dataUpdateAlreadyInstalledCheck
-	 *
-	 * @param string $versionNotification
-	 * @param string $versionInstalled
-	 * @param bool $exception
-	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider(methodName: 'dataUpdateAlreadyInstalledCheck')]
 	public function testUpdateAlreadyInstalledCheck(string $versionNotification, string $versionInstalled, bool $exception): void {
 		$notifier = $this->getNotifier();
 

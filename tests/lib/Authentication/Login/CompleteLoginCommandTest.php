@@ -13,10 +13,11 @@ use OC\Authentication\Login\CompleteLoginCommand;
 use OC\User\Session;
 use PHPUnit\Framework\MockObject\MockObject;
 
-class CompleteLoginCommandTest extends ALoginCommandTest {
+class CompleteLoginCommandTest extends ALoginTestCommand {
 	/** @var Session|MockObject */
 	private $session;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 

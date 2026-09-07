@@ -28,8 +28,8 @@ use OCP\Lock\LockedException;
  * @template-implements IEventListener<AMetadataEvent>
  */
 class GenerateBlurhashMetadata implements IEventListener {
-	private const COMPONENTS_X = 4;
-	private const COMPONENTS_Y = 3;
+	private const int COMPONENTS_X = 4;
+	private const int COMPONENTS_Y = 3;
 
 	public function __construct(
 		private IPreview $preview,
@@ -41,6 +41,7 @@ class GenerateBlurhashMetadata implements IEventListener {
 	 * @throws GenericFileException
 	 * @throws LockedException
 	 */
+	#[\Override]
 	public function handle(Event $event): void {
 		if (!($event instanceof MetadataLiveEvent)
 			&& !($event instanceof MetadataBackgroundEvent)) {
@@ -65,6 +66,11 @@ class GenerateBlurhashMetadata implements IEventListener {
 		}
 
 		if (!str_starts_with($file->getMimetype(), 'image/')) {
+			return;
+		}
+
+		// Preview are disabled, so we skip generating the blurhash.
+		if (!$this->preview->isAvailable($file)) {
 			return;
 		}
 

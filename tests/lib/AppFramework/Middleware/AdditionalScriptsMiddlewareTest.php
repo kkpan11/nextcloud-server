@@ -31,6 +31,7 @@ class AdditionalScriptsMiddlewareTest extends \Test\TestCase {
 	/** @var IEventDispatcher|MockObject */
 	private $dispatcher;
 
+	#[\Override]
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -67,7 +68,7 @@ class AdditionalScriptsMiddlewareTest extends \Test\TestCase {
 			->method($this->anything());
 		$this->dispatcher->expects($this->once())
 			->method('dispatchTyped')
-			->willReturnCallback(function ($event) {
+			->willReturnCallback(function ($event): void {
 				if ($event instanceof BeforeTemplateRenderedEvent && $event->isLoggedIn() === false) {
 					return;
 				}
@@ -83,7 +84,7 @@ class AdditionalScriptsMiddlewareTest extends \Test\TestCase {
 			->willReturn(false);
 		$this->dispatcher->expects($this->once())
 			->method('dispatchTyped')
-			->willReturnCallback(function ($event) {
+			->willReturnCallback(function ($event): void {
 				if ($event instanceof BeforeTemplateRenderedEvent && $event->isLoggedIn() === false) {
 					return;
 				}
@@ -101,7 +102,7 @@ class AdditionalScriptsMiddlewareTest extends \Test\TestCase {
 			->willReturn(true);
 		$this->dispatcher->expects($this->once())
 			->method('dispatchTyped')
-			->willReturnCallback(function ($event) {
+			->willReturnCallback(function ($event): void {
 				if ($event instanceof BeforeTemplateRenderedEvent && $event->isLoggedIn() === true) {
 					return;
 				}

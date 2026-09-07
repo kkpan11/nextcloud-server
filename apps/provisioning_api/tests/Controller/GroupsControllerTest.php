@@ -5,10 +5,11 @@
  * SPDX-FileCopyrightText: 2016 ownCloud, Inc.
  * SPDX-License-Identifier: AGPL-3.0-only
  */
+
 namespace OCA\Provisioning_API\Tests\Controller;
 
+use OC\Group\DisplayNameCache as GroupDisplayNameCache;
 use OC\Group\Manager;
-use OC\User\NoUserException;
 use OCA\Provisioning_API\Controller\GroupsController;
 use OCP\Accounts\IAccountManager;
 use OCP\AppFramework\OCS\OCSException;
@@ -21,34 +22,25 @@ use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
 use OCP\L10N\IFactory;
+use OCP\User\Exceptions\UserNotFoundException;
 use OCP\UserInterface;
+use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 
 class GroupsControllerTest extends \Test\TestCase {
-	/** @var IRequest|\PHPUnit\Framework\MockObject\MockObject */
-	protected $request;
-	/** @var IUserManager|\PHPUnit\Framework\MockObject\MockObject */
-	protected $userManager;
-	/** @var IConfig|\PHPUnit\Framework\MockObject\MockObject */
-	protected $config;
-	/** @var Manager|\PHPUnit\Framework\MockObject\MockObject */
-	protected $groupManager;
-	/** @var IUserSession|\PHPUnit\Framework\MockObject\MockObject */
-	protected $userSession;
-	/** @var IAccountManager|\PHPUnit\Framework\MockObject\MockObject */
-	protected $accountManager;
-	/** @var ISubAdmin|\PHPUnit\Framework\MockObject\MockObject */
-	protected $subAdminManager;
-	/** @var IFactory|\PHPUnit\Framework\MockObject\MockObject */
-	protected $l10nFactory;
-	/** @var LoggerInterface|\PHPUnit\Framework\MockObject\MockObject */
-	protected $logger;
-
-	/** @var GroupsController|\PHPUnit\Framework\MockObject\MockObject */
-	protected $api;
+	protected IRequest&MockObject $request;
+	protected IUserManager&MockObject $userManager;
+	protected IConfig&MockObject $config;
+	protected Manager&MockObject $groupManager;
+	protected IUserSession&MockObject $userSession;
+	protected IAccountManager&MockObject $accountManager;
+	protected ISubAdmin&MockObject $subAdminManager;
+	protected IFactory&MockObject $l10nFactory;
+	protected LoggerInterface&MockObject $logger;
+	protected GroupsController&MockObject $api;
+	private GroupDisplayNameCache&MockObject $groupDisplayNameCache;
 
 	private IRootFolder $rootFolder;
-
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -63,6 +55,7 @@ class GroupsControllerTest extends \Test\TestCase {
 		$this->l10nFactory = $this->createMock(IFactory::class);
 		$this->logger = $this->createMock(LoggerInterface::class);
 		$this->rootFolder = $this->createMock(IRootFolder::class);
+		$this->groupDisplayNameCache = $this->createMock(GroupDisplayNameCache::class);
 
 		$this->groupManager
 			->method('getSubAdmin')
@@ -80,18 +73,15 @@ class GroupsControllerTest extends \Test\TestCase {
 				$this->subAdminManager,
 				$this->l10nFactory,
 				$this->rootFolder,
-				$this->logger
+				$this->logger,
+				$this->groupDisplayNameCache,
 			])
-			->setMethods(['fillStorageInfo'])
+			->onlyMethods(['fillStorageInfo'])
 			->getMock();
 	}
 
-	/**
-	 * @param string $gid
-	 * @return IGroup|\PHPUnit\Framework\MockObject\MockObject
-	 */
-	private function createGroup($gid) {
-		$group = $this->getMockBuilder('\OCP\IGroup')->disableOriginalConstructor()->getMock();
+	private function createGroup(string $gid): IGroup&MockObject {
+		$group = $this->createMock(IGroup::class);
 		$group
 			->method('getGID')
 			->willReturn($gid);
@@ -116,7 +106,7 @@ class GroupsControllerTest extends \Test\TestCase {
 
 	/**
 	 * @param string $uid
-	 * @return IUser|\PHPUnit\Framework\MockObject\MockObject
+	 * @return IUser&MockObject
 	 */
 	private function createUser($uid) {
 		$user = $this->getMockBuilder(IUser::class)->disableOriginalConstructor()->getMock();
@@ -165,7 +155,7 @@ class GroupsControllerTest extends \Test\TestCase {
 			});
 	}
 
-	public function dataGetGroups() {
+	public static function dataGetGroups(): array {
 		return [
 			[null, 0, 0],
 			['foo', 0, 0],
@@ -175,14 +165,8 @@ class GroupsControllerTest extends \Test\TestCase {
 		];
 	}
 
-	/**
-	 * @dataProvider dataGetGroups
-	 *
-	 * @param string|null $search
-	 * @param int|null $limit
-	 * @param int|null $offset
-	 */
-	public function testGetGroups($search, $limit, $offset): void {
+	#[\PHPUnit\Framework\Attributes\DataProvider(methodName: 'dataGetGroups')]
+	public function testGetGroups(?string $search, int $limit, int $offset): void {
 		$groups = [$this->createGroup('group1'), $this->createGroup('group2')];
 
 		$search = $search === null ? '' : $search;
@@ -198,12 +182,12 @@ class GroupsControllerTest extends \Test\TestCase {
 	}
 
 	/**
-	 * @dataProvider dataGetGroups
 	 *
 	 * @param string|null $search
 	 * @param int|null $limit
 	 * @param int|null $offset
 	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider(methodName: 'dataGetGroups')]
 	public function testGetGroupsDetails($search, $limit, $offset): void {
 		$groups = [$this->createGroup('group1'), $this->createGroup('group2')];
 
@@ -260,7 +244,6 @@ class GroupsControllerTest extends \Test\TestCase {
 		$this->assertEquals(['users' => ['user1', 'user2']], $result->getData());
 	}
 
-
 	public function testGetGroupAsIrrelevantSubadmin(): void {
 		$this->expectException(OCSException::class);
 		$this->expectExceptionCode(403);
@@ -305,7 +288,6 @@ class GroupsControllerTest extends \Test\TestCase {
 		$this->assertEquals(['users' => ['user1', 'user2']], $result->getData());
 	}
 
-
 	public function testGetGroupNonExisting(): void {
 		$this->expectException(OCSException::class);
 		$this->expectExceptionMessage('The requested group could not be found');
@@ -315,7 +297,6 @@ class GroupsControllerTest extends \Test\TestCase {
 
 		$this->api->getGroup($this->getUniqueID());
 	}
-
 
 	public function testGetSubAdminsOfGroupsNotExists(): void {
 		$this->expectException(OCSException::class);
@@ -363,7 +344,6 @@ class GroupsControllerTest extends \Test\TestCase {
 		$this->assertEquals([], $result->getData());
 	}
 
-
 	public function testAddGroupEmptyGroup(): void {
 		$this->expectException(OCSException::class);
 		$this->expectExceptionMessage('Invalid group name');
@@ -371,7 +351,6 @@ class GroupsControllerTest extends \Test\TestCase {
 
 		$this->api->addGroup('');
 	}
-
 
 	public function testAddGroupExistingGroup(): void {
 		$this->expectException(OCSException::class);
@@ -417,14 +396,12 @@ class GroupsControllerTest extends \Test\TestCase {
 		$this->api->addGroup('Iñtërnâtiônàlizætiøn');
 	}
 
-
 	public function testDeleteGroupNonExisting(): void {
 		$this->expectException(OCSException::class);
 		$this->expectExceptionCode(101);
 
 		$this->api->deleteGroup('NonExistingGroup');
 	}
-
 
 	public function testDeleteAdminGroup(): void {
 		$this->expectException(OCSException::class);
@@ -487,7 +464,7 @@ class GroupsControllerTest extends \Test\TestCase {
 		];
 		$users['ncu2']->expects($this->atLeastOnce())
 			->method('getHome')
-			->willThrowException(new NoUserException());
+			->willThrowException(new UserNotFoundException());
 
 		$this->userManager->expects($this->any())
 			->method('get')
@@ -506,10 +483,10 @@ class GroupsControllerTest extends \Test\TestCase {
 			->with($gid)
 			->willReturn($group);
 		$this->groupManager->expects($this->any())
-			->method('getUserGroups')
-			->willReturn([$group]);
+			->method('getUserGroupIds')
+			->willReturn(['ncg1']);
 
-		/** @var \PHPUnit\Framework\MockObject\MockObject */
+		/** @var MockObject */
 		$this->subAdminManager->expects($this->any())
 			->method('isSubAdminOfGroup')
 			->willReturn(false);
@@ -517,8 +494,18 @@ class GroupsControllerTest extends \Test\TestCase {
 			->method('getSubAdminsGroups')
 			->willReturn([]);
 
+		$this->groupDisplayNameCache
+			->method('getDisplayNames')
+			->with(['ncg1'])
+			->willReturn(['ncg1' => 'Group One']);
 
-		$this->api->getGroupUsersDetails($gid);
+		$result = $this->api->getGroupUsersDetails($gid);
+
+		$data = $result->getData();
+		$this->assertSame(['ncu1'], array_keys($data['users']));
+		$this->assertEquals([
+			['id' => 'ncg1', 'displayname' => 'Group One'],
+		], $data['groups']);
 	}
 
 	public function testGetGroupUsersDetailsEncoded(): void {
@@ -532,7 +519,7 @@ class GroupsControllerTest extends \Test\TestCase {
 		];
 		$users['ncu2']->expects($this->atLeastOnce())
 			->method('getHome')
-			->willThrowException(new NoUserException());
+			->willThrowException(new UserNotFoundException());
 
 		$this->userManager->expects($this->any())
 			->method('get')
@@ -551,10 +538,10 @@ class GroupsControllerTest extends \Test\TestCase {
 			->with($gid)
 			->willReturn($group);
 		$this->groupManager->expects($this->any())
-			->method('getUserGroups')
-			->willReturn([$group]);
+			->method('getUserGroupIds')
+			->willReturn(['Department A/B C/D']);
 
-		/** @var \PHPUnit\Framework\MockObject\MockObject */
+		/** @var MockObject */
 		$this->subAdminManager->expects($this->any())
 			->method('isSubAdminOfGroup')
 			->willReturn(false);
@@ -562,7 +549,17 @@ class GroupsControllerTest extends \Test\TestCase {
 			->method('getSubAdminsGroups')
 			->willReturn([]);
 
+		$this->groupDisplayNameCache
+			->method('getDisplayNames')
+			->with(['Department A/B C/D'])
+			->willReturn(['Department A/B C/D' => 'Department A/B C/D-name']);
 
-		$this->api->getGroupUsersDetails(urlencode($gid));
+		$result = $this->api->getGroupUsersDetails(urlencode($gid));
+
+		$data = $result->getData();
+		$this->assertSame(['ncu1'], array_keys($data['users']));
+		$this->assertEquals([
+			['id' => 'Department A/B C/D', 'displayname' => 'Department A/B C/D-name'],
+		], $data['groups']);
 	}
 }

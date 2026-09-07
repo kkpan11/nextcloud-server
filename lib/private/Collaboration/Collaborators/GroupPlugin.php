@@ -1,8 +1,10 @@
 <?php
+
 /**
  * SPDX-FileCopyrightText: 2017 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OC\Collaboration\Collaborators;
 
 use OCP\Collaboration\Collaborators\ISearchPlugin;
@@ -39,7 +41,8 @@ class GroupPlugin implements ISearchPlugin {
 		}
 	}
 
-	public function search($search, $limit, $offset, ISearchResult $searchResult): bool {
+	#[\Override]
+	public function search(string $search, int $limit, int $offset, ISearchResult $searchResult): bool {
 		if ($this->groupSharingDisabled) {
 			return false;
 		}

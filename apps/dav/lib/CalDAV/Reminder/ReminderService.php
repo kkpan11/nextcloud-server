@@ -6,6 +6,7 @@ declare(strict_types=1);
  * SPDX-FileCopyrightText: 2019 Nextcloud GmbH and Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
 namespace OCA\DAV\CalDAV\Reminder;
 
 use DateTimeImmutable;
@@ -441,10 +442,10 @@ class ReminderService {
 	 */
 	private function deleteOrProcessNext(array $reminder,
 		VObject\Component\VEvent $vevent):void {
-		if ($reminder['is_repeat_based'] ||
-			!$reminder['is_recurring'] ||
-			!$reminder['is_relative'] ||
-			$reminder['is_recurrence_exception']) {
+		if ($reminder['is_repeat_based']
+			|| !$reminder['is_recurring']
+			|| !$reminder['is_relative']
+			|| $reminder['is_recurrence_exception']) {
 			$this->backend->removeReminder($reminder['id']);
 			return;
 		}
